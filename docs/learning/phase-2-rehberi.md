@@ -305,9 +305,9 @@ injection zaten mümkün değil.
 
 | Proje | Sayı | Neyi kanıtlıyor? |
 |---|---|---|
-| UnitTests | 99 | Value object kuralları, Vehicle davranışı, durum makinesi tablosu, handler'lar (sahte repository ile), ETag ayrıştırma, routing key |
+| UnitTests | 98 | Value object kuralları, Vehicle davranışı, durum makinesi tablosu, handler'lar (sahte repository ile), ETag ayrıştırma, routing key |
 | ArchitectureTests | 11 | Katman kuralları hâlâ sağlam (Messaging, Persistence'ı bilmiyor; Desktop, Domain'i bilmiyor) |
-| IntegrationTests | 21 | Gerçek PostgreSQL + RabbitMQ: CRUD, 400/404/409/412/428, 8 eşzamanlı istek yarışı, arama, sayfalama, outbox → RabbitMQ |
+| IntegrationTests | 22 | Gerçek PostgreSQL + RabbitMQ: CRUD, 400/404/409/412/428, 8 eşzamanlı istek yarışı, arama, sayfalama, outbox → RabbitMQ |
 
 ### "Flaky" test avı: Gerçek bir hikâye
 

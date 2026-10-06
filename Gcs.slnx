@@ -12,4 +12,9 @@
     <Project Path="src/Gcs.Simulation/Gcs.Simulation.csproj" />
     <Project Path="src/Gcs.Telemetry/Gcs.Telemetry.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Gcs.ArchitectureTests/Gcs.ArchitectureTests.csproj" />
+    <Project Path="tests/Gcs.IntegrationTests/Gcs.IntegrationTests.csproj" />
+    <Project Path="tests/Gcs.UnitTests/Gcs.UnitTests.csproj" />
+  </Folder>
 </Solution>

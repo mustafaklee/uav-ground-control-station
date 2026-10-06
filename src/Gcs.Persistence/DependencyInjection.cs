@@ -19,9 +19,12 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
-        var connectionString = configuration.GetConnectionString(PersistenceOptions.ConnectionStringName)
-            ?? throw new InvalidOperationException(
+        var connectionString = configuration.GetConnectionString(PersistenceOptions.ConnectionStringName);
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException(
                 $"Connection string '{PersistenceOptions.ConnectionStringName}' is not configured.");
+        }
 
         services.AddDbContext<GcsDbContext>((serviceProvider, options) =>
         {

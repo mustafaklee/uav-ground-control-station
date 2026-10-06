@@ -47,7 +47,7 @@ public sealed class UpdateVehicleHandler(
         }
 
         var update = vehicle.Update(
-            input.Callsign, input.SystemId, input.Autopilot, input.Type, input.Connection, expectedVersion, clock.GetUtcNow());
+            input.Callsign, input.SystemId, input.Autopilot, input.Type, input.Connection, expectedVersion, clock.GetUtcNowForStorage());
         if (!update.IsSuccess)
         {
             return update.Error;

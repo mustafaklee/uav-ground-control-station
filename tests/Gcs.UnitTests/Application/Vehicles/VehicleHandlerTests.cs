@@ -29,6 +29,18 @@ public sealed class VehicleHandlerTests
     }
 
     [Fact]
+    public async Task Timestamps_are_truncated_to_the_microsecond_precision_postgres_stores()
+    {
+        var clockWithSubMicroseconds = new FixedClock(Now.AddTicks(1234567));
+        var handler = new RegisterVehicleHandler(
+            new VehicleFieldsValidator<RegisterVehicleRequest>(), _repository, _unitOfWork, clockWithSubMicroseconds);
+
+        var result = await handler.HandleAsync(ValidRegistration("UAV-01", systemId: 1), CancellationToken.None);
+
+        result.Value.CreatedAt.ShouldBe(Now.AddTicks(1234560));
+    }
+
+    [Fact]
     public async Task Register_reports_every_invalid_field_at_once()
     {
         var request = new RegisterVehicleRequest("x", 0, "Betaflight", "Blimp", new ConnectionSettingsDto("Udp", Host: "", Port: 70000));

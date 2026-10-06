@@ -1,4 +1,5 @@
 using Gcs.Application.Abstractions;
+using Gcs.Application.Common;
 using Gcs.Domain.Common;
 using Gcs.Domain.Vehicles;
 
@@ -15,7 +16,7 @@ public sealed class RetireVehicleHandler(IVehicleRepository vehicles, IUnitOfWor
             return VehicleErrors.NotFound;
         }
 
-        var retire = vehicle.Retire(expectedVersion, clock.GetUtcNow());
+        var retire = vehicle.Retire(expectedVersion, clock.GetUtcNowForStorage());
         if (!retire.IsSuccess)
         {
             return retire;

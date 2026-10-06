@@ -32,7 +32,7 @@ public sealed class RegisterVehicleHandler(
             return uniqueness.Error;
         }
 
-        var vehicle = Vehicle.Register(input.Callsign, input.SystemId, input.Autopilot, input.Type, input.Connection, clock.GetUtcNow());
+        var vehicle = Vehicle.Register(input.Callsign, input.SystemId, input.Autopilot, input.Type, input.Connection, clock.GetUtcNowForStorage());
         vehicles.Add(vehicle);
 
         try

@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Gcs.Api/Gcs.Api.csproj" />
+    <Project Path="src/Gcs.Application/Gcs.Application.csproj" />
+    <Project Path="src/Gcs.Contracts/Gcs.Contracts.csproj" />
+    <Project Path="src/Gcs.Desktop/Gcs.Desktop.csproj" />
+    <Project Path="src/Gcs.Domain/Gcs.Domain.csproj" />
+    <Project Path="src/Gcs.Infrastructure/Gcs.Infrastructure.csproj" />
+    <Project Path="src/Gcs.Mavlink/Gcs.Mavlink.csproj" />
+    <Project Path="src/Gcs.Messaging/Gcs.Messaging.csproj" />
+    <Project Path="src/Gcs.Persistence/Gcs.Persistence.csproj" />
+    <Project Path="src/Gcs.Simulation/Gcs.Simulation.csproj" />
+    <Project Path="src/Gcs.Telemetry/Gcs.Telemetry.csproj" />
+  </Folder>
+</Solution>

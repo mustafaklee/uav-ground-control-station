@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Gcs.Infrastructure</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Gcs.Persistence/Gcs.Persistence.csproj" />
+    <ProjectReference Include="../Gcs.Messaging/Gcs.Messaging.csproj" />
+    <ProjectReference Include="../Gcs.Mavlink/Gcs.Mavlink.csproj" />
+    <ProjectReference Include="../Gcs.Telemetry/Gcs.Telemetry.csproj" />
+  </ItemGroup>
+
+</Project>

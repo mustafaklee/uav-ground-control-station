@@ -1,0 +1,17 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Gcs.Desktop.ViewModels"
+        x:Class="Gcs.Desktop.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="{Binding Title}"
+        Width="1280" Height="800">
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Padding="8,4" Background="#1F2933">
+      <TextBlock Text="{Binding StatusText}" />
+    </Border>
+    <TextBlock Text="{Binding Title}"
+               FontSize="28"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center" />
+  </DockPanel>
+</Window>

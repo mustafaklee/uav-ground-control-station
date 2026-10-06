@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+**/TestResults/
+**/.vs/
+**/.idea/
+**/*.user
+.git/
+.github/
+.claude/
+docs/
+tests/
+.env
+claude_prompt.txt

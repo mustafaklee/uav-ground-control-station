@@ -1,4 +1,5 @@
 using Gcs.Application;
+using Gcs.Application.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Gcs.Messaging;
@@ -15,6 +16,7 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddSingleton<IRabbitMqConnectionProvider, RabbitMqConnectionProvider>();
+        services.AddSingleton<IIntegrationEventPublisher, RabbitMqEventPublisher>();
 
         services.AddHealthChecks()
             .AddCheck<RabbitMqHealthCheck>(HealthCheckName, tags: [HealthCheckTags.Ready]);

@@ -4,7 +4,7 @@ namespace Gcs.Domain.Common;
 /// Entry point of a consistency boundary. Only aggregate roots are loaded and saved through repositories,
 /// and only they record domain events.
 /// </summary>
-public abstract class AggregateRoot<TId> : Entity<TId>
+public abstract class AggregateRoot<TId> : Entity<TId>, IHasDomainEvents
     where TId : notnull
 {
     private readonly List<IDomainEvent> _domainEvents = [];

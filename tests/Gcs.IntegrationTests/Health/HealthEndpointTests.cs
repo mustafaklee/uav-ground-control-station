@@ -5,7 +5,8 @@ using Gcs.IntegrationTests.Infrastructure;
 
 namespace Gcs.IntegrationTests.Health;
 
-public sealed class HealthEndpointTests(GcsApiFactory factory) : IClassFixture<GcsApiFactory>
+[Collection(ApiTestGroup.Name)]
+public sealed class HealthEndpointTests(GcsApiFactory factory)
 {
     [Fact]
     public async Task Liveness_is_healthy_without_running_dependency_checks()

@@ -17,6 +17,7 @@ public sealed class UnreachableDependenciesApiFactory : WebApplicationFactory<Pr
         builder.UseEnvironment(TestEnvironments.Testing);
         builder.UseSetting("ConnectionStrings:Postgres", $"Host=127.0.0.1;Port={ClosedPort};Database=gcs;Username=gcs;Password=unused;Timeout=2");
         builder.UseSetting("Persistence:MaxRetryCount", "0");
+        builder.UseSetting("Outbox:Enabled", "false");
         builder.UseSetting("RabbitMq:HostName", "127.0.0.1");
         builder.UseSetting("RabbitMq:Port", ClosedPort);
         builder.UseSetting("RabbitMq:UserName", "gcs");

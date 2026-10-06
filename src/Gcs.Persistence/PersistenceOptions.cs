@@ -16,4 +16,11 @@ public sealed class PersistenceOptions
     /// <summary>How many times a transient PostgreSQL failure is retried before giving up.</summary>
     [Range(0, 10)]
     public int MaxRetryCount { get; init; } = 3;
+
+    /// <summary>
+    /// Apply pending EF Core migrations when the API starts. Convenient for local development and tests only.
+    /// In Docker/production this stays false and the separate migrator container updates the schema
+    /// (see docs/adr/ADR-009-database-migrations.md).
+    /// </summary>
+    public bool ApplyMigrationsOnStartup { get; init; }
 }

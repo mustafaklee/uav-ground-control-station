@@ -6,8 +6,9 @@ A modular, testable ground control station (GCS) for managing multiple UAVs over
 ASP.NET Core, PostgreSQL, RabbitMQ, SignalR and Avalonia UI. It is engineered like a defence-industry product:
 reliability, safety, security and observability come before features.
 
-> **Status: Phase 1, project foundation.** The solution structure, build rules, local infrastructure, health checks,
-> logging and CI are in place. Vehicle, MAVLink, telemetry and UI features arrive in the phases listed in the [roadmap](#roadmap).
+> **Status: Phase 2, vehicle domain.** Vehicles can be registered, listed, updated and retired through a versioned REST API
+> backed by PostgreSQL, with optimistic concurrency and domain events delivered to RabbitMQ through an outbox.
+> MAVLink, telemetry and UI features arrive in the phases listed in the [roadmap](#roadmap).
 
 ## Project overview
 
@@ -39,7 +40,9 @@ Avalonia GCS ──REST/SignalR──► Gcs.Api ──► Application ──►
 | Docker Compose (PostgreSQL, RabbitMQ, Redis, API) | ✅ Phase 1 |
 | Structured logging with correlation ids, liveness/readiness health checks | ✅ Phase 1 |
 | CI: build, unit, architecture and integration tests, Docker build, compose smoke test | ✅ Phase 1 |
-| Vehicle management API | Planned (Phase 2) |
+| Vehicle management API (CRUD, paging, ETag concurrency, retire) | ✅ Phase 2 |
+| Domain events via transactional outbox → RabbitMQ | ✅ Phase 2 |
+| Database migrations (dev: on startup, Docker: migrator container) | ✅ Phase 2 |
 | MAVLink transports, simulator, connection lifecycle | Planned (Phase 3) |
 | Real-time telemetry over SignalR | Planned (Phase 4) |
 | Avalonia operator UI | Planned (Phase 5) |
@@ -83,6 +86,16 @@ dotnet build Gcs.slnx
 dotnet run --project src/Gcs.Api  # http://localhost:5134/health/ready
 ```
 
+### Database migrations
+
+```bash
+dotnet tool restore
+dotnet ef migrations add <Name> --project src/Gcs.Persistence --startup-project src/Gcs.Persistence
+```
+
+In Development the API applies migrations on startup. In Docker the `gcs-migrator` container applies them before the
+API starts. See [ADR-009](docs/adr/ADR-009-database-migrations.md).
+
 ### Docker setup
 
 Run the whole backend stack in containers:
@@ -99,6 +112,8 @@ curl http://localhost:8080/health/ready
 | PostgreSQL | localhost:5432 |
 | Redis (unused until Phase 4) | localhost:6379 |
 
+`gcs-migrator` runs once per `up`, applies migrations and exits with code 0.
+
 All ports are bound to `127.0.0.1`.
 
 ## Configuration
@@ -111,6 +126,9 @@ user secrets (Development) → environment variables. Nested keys use `__` in en
 | `ConnectionStrings__Postgres` | PostgreSQL connection string (required) |
 | `Persistence__CommandTimeoutSeconds`, `Persistence__MaxRetryCount` | EF Core command timeout and transient retry count |
 | `RabbitMq__HostName`, `__Port`, `__VirtualHost`, `__UserName`, `__Password` | Broker connection (user name and password required) |
+| `Persistence__ApplyMigrationsOnStartup` | Apply migrations when the API starts (Development/tests only) |
+| `Outbox__Enabled`, `Outbox__PollingIntervalMilliseconds`, `Outbox__BatchSize` | Outbox dispatcher |
+| `RabbitMq__EventsExchange` | Topic exchange for domain events (default `gcs.events`) |
 | `Serilog__MinimumLevel__Default` | Log level |
 
 Options are validated at startup; an invalid configuration stops the API immediately. Secrets are never committed:
@@ -151,6 +169,23 @@ In Development the OpenAPI document is served at `/openapi/v1.json`.
 | `GET /health/live` | Process is running (no dependency checks) |
 | `GET /health/ready` | PostgreSQL and RabbitMQ reachable |
 | `GET /api/v1/system/info` | Service name, version and environment |
+| `GET /api/v1/vehicles?page=&pageSize=&status=&search=` | List vehicles (paged; filter by `Active`/`Retired`, search callsign) |
+| `GET /api/v1/vehicles/{id}` | One vehicle; response carries `ETag: "<version>"` |
+| `POST /api/v1/vehicles` | Register a vehicle → `201 Created` + `Location` + `ETag` |
+| `PUT /api/v1/vehicles/{id}` | Update; requires `If-Match: "<version>"` (`428` if missing, `412` if stale) |
+| `DELETE /api/v1/vehicles/{id}` | Retire (soft delete, idempotent) → `204` |
+
+Example:
+
+```bash
+curl -i -X POST http://localhost:8080/api/v1/vehicles -H "Content-Type: application/json" -d '{
+  "callsign": "UAV-01", "mavlinkSystemId": 1, "autopilot": "Px4", "type": "Multirotor",
+  "connection": { "transport": "Udp", "host": "127.0.0.1", "port": 14550 }
+}'
+```
+
+Errors are RFC 7807 problem documents with a stable `code` (e.g. `vehicle.callsign.in_use`, `vehicle.version_mismatch`).
+Published events go to the `gcs.events` topic exchange with routing keys such as `vehicle.registered`.
 
 ## Security
 
@@ -164,7 +199,7 @@ rate limiting, secure headers, HTTPS and audit logging arrive in Phase 8.
 |---|---|
 | 0 | Analysis ✅ |
 | 1 | Project foundation ✅ |
-| 2 | Vehicle domain, persistence, CRUD API |
+| 2 | Vehicle domain, persistence, CRUD API ✅ |
 | 3 | MAVLink abstraction, UDP transport, simulator, heartbeat, connection lifecycle |
 | 4 | Telemetry processing, latest state, SignalR |
 | 5 | Avalonia GCS |

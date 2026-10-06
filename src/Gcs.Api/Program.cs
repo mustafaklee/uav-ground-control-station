@@ -48,7 +48,9 @@ try
 
     app.MapHealthEndpoints();
     app.MapSystemEndpoints();
+    app.MapVehicleEndpoints();
 
+    await app.Services.InitializeInfrastructureAsync(app.Lifetime.ApplicationStopping);
     await app.RunAsync();
     return 0;
 }

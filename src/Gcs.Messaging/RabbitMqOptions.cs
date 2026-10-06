@@ -27,4 +27,11 @@ public sealed class RabbitMqOptions
 
     [Range(1, 120)]
     public int ConnectionTimeoutSeconds { get; init; } = 5;
+
+    /// <summary>
+    /// Topic exchange that receives all domain events. Consumers bind their own queues with patterns
+    /// such as <c>vehicle.*</c> (all vehicle events) or <c>#</c> (everything).
+    /// </summary>
+    [Required]
+    public string EventsExchange { get; init; } = "gcs.events";
 }

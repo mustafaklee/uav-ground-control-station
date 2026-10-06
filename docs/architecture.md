@@ -73,7 +73,23 @@ layer takes a dependency it should not.
 | `Gcs.Simulation` | Simulated vehicle that speaks MAVLink, for development and tests | Mavlink |
 | `Gcs.Desktop` | Operator UI (Avalonia, MVVM) | Contracts |
 
-## Cross-cutting concerns (Phase 1 state)
+## Vehicle module (Phase 2)
+
+```
+POST /api/v1/vehicles
+  → VehicleEndpoints            HTTP ↔ use case, ETag/If-Match, problem details
+  → RegisterVehicleHandler      validate (FluentValidation calling domain rules), uniqueness, Vehicle.Register
+  → Vehicle aggregate           invariants, version, raises VehicleRegistered
+  → UnitOfWork / GcsDbContext   one transaction: INSERT vehicles + INSERT outbox_messages
+  → OutboxDispatcher (bg)       SELECT ... FOR UPDATE SKIP LOCKED → RabbitMQ (publisher confirms) → mark processed
+```
+
+* `Vehicle` holds registration data only. Live link state (`VehicleConnection`, a state machine with bounded
+  reconnect attempts) lives in memory and is used by the MAVLink layer from Phase 3.
+* Retiring is a soft delete; partial unique indexes reserve callsign and MAVLink system id only for active vehicles.
+* Concurrency: the `version` column is an EF Core concurrency token; clients send it back in `If-Match`.
+
+## Cross-cutting concerns
 
 | Concern | Implementation |
 |---|---|
@@ -90,8 +106,10 @@ layer takes a dependency it should not.
 | Failure | Behaviour today | Planned |
 |---|---|---|
 | PostgreSQL down at startup | API starts, `/health/ready` returns 503 | Telemetry history buffered in memory with bounded size (Phase 4) |
-| RabbitMQ down | API starts, readiness 503, connection created lazily on next use | Outbox keeps events in PostgreSQL until the broker is back (Phase 2+) |
+| RabbitMQ down | API starts, readiness 503; vehicle changes still succeed and their events wait in the outbox until the broker is back | n/a |
 | Transient DB error | EF Core retries (configurable `Persistence:MaxRetryCount`) | n/a |
+| Two operators edit the same vehicle | The second save gets `412 Precondition Failed`; nothing is overwritten | n/a |
+| Same request sent twice | Register: second gets `409` (callsign in use). Retire: idempotent `204` | Idempotency keys for commands (Phase 7) |
 | Vehicle link lost | n/a | Connection state machine with heartbeat timeout and exponential backoff reconnect (Phase 3) |
 
 ## Related decisions

@@ -1,3 +1,4 @@
+using Gcs.Infrastructure.Outbox;
 using Gcs.Messaging;
 using Gcs.Persistence;
 using Microsoft.Extensions.Configuration;
@@ -15,6 +16,17 @@ public static class DependencyInjection
     {
         services.AddPersistence(configuration);
         services.AddMessaging();
+
+        services.AddOptions<OutboxDispatcherOptions>()
+            .BindConfiguration(OutboxDispatcherOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddHostedService<OutboxDispatcher>();
+
         return services;
     }
+
+    /// <summary>Startup work that must finish before the API accepts requests (e.g. development migrations).</summary>
+    public static Task InitializeInfrastructureAsync(this IServiceProvider services, CancellationToken cancellationToken) =>
+        services.MigrateDatabaseIfEnabledAsync(cancellationToken);
 }

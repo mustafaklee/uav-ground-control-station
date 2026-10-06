@@ -1,0 +1,35 @@
+# Build output
+bin/
+obj/
+artifacts/
+TestResults/
+*.trx
+coverage*.xml
+coverage*.json
+
+# IDE
+.vs/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.user
+*.suo
+*.DotSettings.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / local config (never commit)
+.env
+*.env.local
+appsettings.*.local.json
+secrets.json
+*.pfx
+*.key
+
+# Claude Code local state
+.claude/
+
+# Private project brief (kept locally, not published)
+claude_prompt.txt

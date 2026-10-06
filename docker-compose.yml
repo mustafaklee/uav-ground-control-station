@@ -56,6 +56,19 @@ services:
       <<: *healthcheck-defaults
       test: ["CMD", "redis-cli", "ping"]
 
+  # Applies database migrations once, then exits. The API starts only after it finished successfully.
+  gcs-migrator:
+    build:
+      context: .
+      dockerfile: docker/Gcs.Migrator.Dockerfile
+    image: gcs-migrator:local
+    restart: "no"
+    environment:
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB:-gcs};Username=${POSTGRES_USER:-gcs};Password=${POSTGRES_PASSWORD:-gcs_dev_password}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   gcs-api:
     build:
       context: .
@@ -71,8 +84,8 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
-      postgres:
-        condition: service_healthy
+      gcs-migrator:
+        condition: service_completed_successfully
       rabbitmq:
         condition: service_healthy
     healthcheck:

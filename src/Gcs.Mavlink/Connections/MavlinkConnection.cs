@@ -27,6 +27,7 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
     private readonly VehicleLinkTarget _target;
     private readonly IMavlinkTransportFactory _transports;
     private readonly ITelemetrySink _telemetry;
+    private readonly IVehicleLinkEventSink _events;
     private readonly MavlinkConnectionOptions _options;
     private readonly TimeProvider _time;
     private readonly ILogger _logger;
@@ -39,11 +40,13 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
     private Task? _run;
     private DateTimeOffset _sessionStartedAt;
     private int _sequence;
+    private int _disposed;
 
     public MavlinkConnection(
         VehicleLinkTarget target,
         IMavlinkTransportFactory transports,
         ITelemetrySink telemetry,
+        IVehicleLinkEventSink events,
         MavlinkConnectionOptions options,
         TimeProvider time,
         ILogger logger,
@@ -52,6 +55,7 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
         _target = target;
         _transports = transports;
         _telemetry = telemetry;
+        _events = events;
         _options = options;
         _time = time;
         _logger = logger;
@@ -76,45 +80,37 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
     {
         lock (_gate)
         {
-            var stats = _parser.Statistics;
-            return new VehicleLinkStatus(
-                _target.VehicleId,
-                _state.State,
-                _state.LastHeartbeatAt,
-                _state.ReconnectAttempts,
-                _state.FaultReason,
-                new LinkQuality(stats.FramesReceived, stats.FramesLost, stats.PacketLossRatio, stats.CrcErrors));
+            return BuildStatus();
         }
     }
 
     /// <summary>Starts the background session loop. Returns immediately.</summary>
     public void Start()
     {
-        lock (_gate)
+        var begin = Mutate(state => state.BeginConnect());
+        if (!begin.IsSuccess)
         {
-            var begin = _state.BeginConnect();
-            if (!begin.IsSuccess)
-            {
-                throw new InvalidOperationException(begin.Error.Message);
-            }
-
-            _run = Task.Run(() => RunAsync(_stop.Token), CancellationToken.None);
+            throw new InvalidOperationException(begin.Error.Message);
         }
+
+        _run = Task.Run(() => RunAsync(_stop.Token), CancellationToken.None);
     }
 
+    /// <summary>Stops the link. Safe to call more than once (e.g. operator disconnect racing with shutdown).</summary>
     public async ValueTask DisposeAsync()
     {
+        if (Interlocked.Exchange(ref _disposed, 1) == 1)
+        {
+            return;
+        }
+
         await _stop.CancelAsync();
         if (_run is not null)
         {
             await _run;
         }
 
-        lock (_gate)
-        {
-            _state.Disconnect();
-        }
-
+        Mutate(state => state.Disconnect());
         _stop.Dispose();
         LogDisconnected(_target.VehicleId.Value);
     }
@@ -188,34 +184,31 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
     }
 
     /// <summary>Decides what a lost session means. Returns false when the loop should stop (Faulted).</summary>
-    private bool OnSessionEnded(string reason)
+    private bool OnSessionEnded(string reason) => Mutate(state =>
     {
-        lock (_gate)
+        switch (state.State)
         {
-            switch (_state.State)
-            {
-                case ConnectionState.Connecting:
-                    _state.Fault(reason);
-                    LogFaulted(_target.VehicleId.Value, reason);
+            case ConnectionState.Connecting:
+                state.Fault(reason);
+                LogFaulted(_target.VehicleId.Value, reason);
+                return false;
+            case ConnectionState.Connected:
+                state.HeartbeatLost();
+                LogLinkLost(_target.VehicleId.Value, reason);
+                return true;
+            case ConnectionState.Reconnecting:
+                state.ReconnectAttemptFailed();
+                if (state.State == ConnectionState.Faulted)
+                {
+                    LogFaulted(_target.VehicleId.Value, state.FaultReason ?? reason);
                     return false;
-                case ConnectionState.Connected:
-                    _state.HeartbeatLost();
-                    LogLinkLost(_target.VehicleId.Value, reason);
-                    return true;
-                case ConnectionState.Reconnecting:
-                    _state.ReconnectAttemptFailed();
-                    if (_state.State == ConnectionState.Faulted)
-                    {
-                        LogFaulted(_target.VehicleId.Value, _state.FaultReason ?? reason);
-                        return false;
-                    }
+                }
 
-                    return true;
-                default:
-                    return false;
-            }
+                return true;
+            default:
+                return false;
         }
-    }
+    });
 
     private async Task<string> WatchdogAsync(Task receive, CancellationToken session)
     {
@@ -290,13 +283,12 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
         var now = _time.GetUtcNow();
         if (message is HeartbeatMessage { Type: not MavType.Gcs })
         {
-            bool becameConnected;
-            lock (_gate)
+            var becameConnected = Mutate(state =>
             {
-                var previous = _state.State;
-                _state.HeartbeatReceived(now);
-                becameConnected = previous != ConnectionState.Connected && _state.State == ConnectionState.Connected;
-            }
+                var previous = state.State;
+                state.HeartbeatReceived(now);
+                return previous != ConnectionState.Connected && state.State == ConnectionState.Connected;
+            });
 
             if (becameConnected)
             {
@@ -331,6 +323,46 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
     }
 
     private byte NextSequence() => (byte)Interlocked.Increment(ref _sequence);
+
+    /// <summary>
+    /// Runs a state change under the lock and, if the state actually changed, reports it after releasing the lock.
+    /// The event sink only enqueues, but calling out while holding a lock is avoided on principle.
+    /// </summary>
+    private T Mutate<T>(Func<VehicleConnection, T> change)
+    {
+        ConnectionState previous;
+        VehicleLinkStatus? changed = null;
+        T result;
+        lock (_gate)
+        {
+            previous = _state.State;
+            result = change(_state);
+            if (_state.State != previous)
+            {
+                changed = BuildStatus();
+            }
+        }
+
+        if (changed is not null)
+        {
+            _events.StateChanged(changed, previous);
+        }
+
+        return result;
+    }
+
+    /// <summary>Caller must hold <see cref="_gate"/>.</summary>
+    private VehicleLinkStatus BuildStatus()
+    {
+        var stats = _parser.Statistics;
+        return new VehicleLinkStatus(
+            _target.VehicleId,
+            _state.State,
+            _state.LastHeartbeatAt,
+            _state.ReconnectAttempts,
+            _state.FaultReason,
+            new LinkQuality(stats.FramesReceived, stats.FramesLost, stats.PacketLossRatio, stats.CrcErrors));
+    }
 
     private static async Task Quietly(Task task)
     {

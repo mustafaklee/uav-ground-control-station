@@ -39,6 +39,10 @@ public sealed class GcsApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
         builder.UseSetting("Mavlink:MaxReconnectAttempts", "2");
         builder.UseSetting("Mavlink:ReconnectBaseDelayMilliseconds", "200");
         builder.UseSetting("Mavlink:WatchdogIntervalMilliseconds", "100");
+
+        // Sample and flush history quickly so tests see stored samples within seconds.
+        builder.UseSetting("Telemetry:HistorySampleIntervalMilliseconds", "200");
+        builder.UseSetting("Telemetry:HistoryFlushIntervalMilliseconds", "300");
         builder.UseSetting("RabbitMq:HostName", rabbitUri.Host);
         builder.UseSetting("RabbitMq:Port", rabbitUri.Port.ToString(System.Globalization.CultureInfo.InvariantCulture));
         builder.UseSetting("RabbitMq:UserName", Uri.UnescapeDataString(credentials[0]));

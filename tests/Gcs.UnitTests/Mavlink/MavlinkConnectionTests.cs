@@ -29,6 +29,7 @@ public sealed class MavlinkConnectionTests : IAsyncDisposable
     private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 10, 7, 12, 0, 0, TimeSpan.Zero));
     private readonly InMemoryLink _link = new();
     private readonly RecordingSink _sink = new();
+    private readonly RecordingEvents _events = new();
     private readonly MavlinkConnectionOptions _options = new()
     {
         HeartbeatTimeoutMilliseconds = 3000,
@@ -48,7 +49,7 @@ public sealed class MavlinkConnectionTests : IAsyncDisposable
             VehicleId.New(), MavlinkSystemId.Create(VehicleSystemId).Value, AutopilotType.Px4, VehicleType.Multirotor,
             ConnectionSettings.Simulator());
         _connection = new MavlinkConnection(
-            target, new FixedFactory(_link.GcsSide), _sink, _options, _time, NullLogger.Instance, new Random(1));
+            target, new FixedFactory(_link.GcsSide), _sink, _events, _options, _time, NullLogger.Instance, new Random(1));
     }
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -162,6 +163,22 @@ public sealed class MavlinkConnectionTests : IAsyncDisposable
         await EventuallyAsync(() => _connection.GetStatus().Quality.FramesLost == 5);
     }
 
+    [Fact]
+    public async Task Every_state_change_is_reported_with_its_previous_state()
+    {
+        await ConnectAsync();
+        await AdvanceUntilAsync(() => _connection.State == ConnectionState.Reconnecting, TimeSpan.FromSeconds(15));
+        await _connection.DisposeAsync();
+
+        _events.Transitions.ShouldBe(
+        [
+            (ConnectionState.Disconnected, ConnectionState.Connecting),
+            (ConnectionState.Connecting, ConnectionState.Connected),
+            (ConnectionState.Connected, ConnectionState.Reconnecting),
+            (ConnectionState.Reconnecting, ConnectionState.Disconnected),
+        ]);
+    }
+
     public async ValueTask DisposeAsync() => await _connection.DisposeAsync();
 
     private async Task ConnectAsync()
@@ -227,6 +244,15 @@ public sealed class MavlinkConnectionTests : IAsyncDisposable
     private sealed class FixedFactory(IMavlinkTransport transport) : IMavlinkTransportFactory
     {
         public IMavlinkTransport Create(ConnectionSettings settings, byte systemId) => transport;
+    }
+
+    private sealed class RecordingEvents : IVehicleLinkEventSink
+    {
+        private readonly ConcurrentQueue<(ConnectionState From, ConnectionState To)> _transitions = new();
+
+        public IReadOnlyList<(ConnectionState From, ConnectionState To)> Transitions => [.. _transitions];
+
+        public void StateChanged(VehicleLinkStatus status, ConnectionState previous) => _transitions.Enqueue((previous, status.State));
     }
 
     private sealed class RecordingSink : ITelemetrySink

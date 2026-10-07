@@ -39,3 +39,18 @@ public sealed record BatteryDto(double? Voltage, double? Current, int? Remaining
 public sealed record GpsDto(string Fix, int SatellitesVisible);
 
 public sealed record FlightDto(bool Armed, string FlightMode);
+
+/// <summary>Query string of <c>GET /api/v1/vehicles/{id}/telemetry/history</c>. Defaults: the last 10 minutes.</summary>
+public sealed record TelemetryHistoryQuery(DateTimeOffset? From = null, DateTimeOffset? To = null, int Limit = TelemetryHistoryQuery.DefaultLimit)
+{
+    public const int DefaultLimit = 600;
+    public const int MaxLimit = 5000;
+}
+
+/// <summary>Stored samples (one per vehicle per second by default), oldest first. <c>Truncated</c>: more samples exist in the window.</summary>
+public sealed record TelemetryHistoryResponse(
+    Guid VehicleId,
+    DateTimeOffset From,
+    DateTimeOffset To,
+    IReadOnlyList<TelemetryResponse> Samples,
+    bool Truncated);

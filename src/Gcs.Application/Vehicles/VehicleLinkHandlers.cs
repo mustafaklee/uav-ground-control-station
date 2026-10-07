@@ -1,7 +1,6 @@
 using Gcs.Application.Abstractions;
 using Gcs.Contracts.Vehicles;
 using Gcs.Domain.Common;
-using Gcs.Domain.Telemetry;
 using Gcs.Domain.Vehicles;
 using Gcs.Domain.Vehicles.Connections;
 
@@ -78,11 +77,11 @@ public sealed class GetLatestTelemetryHandler(IVehicleQueries queries, ITelemetr
         }
 
         var snapshot = telemetry.GetLatest(new VehicleId(id));
-        return snapshot is null ? NotAvailable : VehicleLinkMapping.ToResponse(snapshot);
+        return snapshot is null ? NotAvailable : TelemetryMapping.ToResponse(snapshot);
     }
 }
 
-internal static class VehicleLinkMapping
+public static class VehicleLinkMapping
 {
     public static VehicleLinkResponse ToResponse(VehicleId vehicleId, VehicleLinkStatus? status) =>
         status is null
@@ -94,14 +93,4 @@ internal static class VehicleLinkMapping
                 status.ReconnectAttempts,
                 status.FaultReason,
                 new LinkQualityDto(status.Quality.FramesReceived, status.Quality.FramesLost, status.Quality.PacketLossRatio, status.Quality.CrcErrors));
-
-    public static TelemetryResponse ToResponse(TelemetrySnapshot s) => new(
-        s.VehicleId.Value,
-        s.UpdatedAt,
-        s.Position is { } p ? new PositionDto(p.Latitude, p.Longitude, p.AltitudeMsl, p.RelativeAltitude) : null,
-        s.Attitude is { } a ? new AttitudeDto(a.Roll, a.Pitch, a.Yaw) : null,
-        s.Motion is { } m ? new MotionDto(m.GroundSpeed, m.AirSpeed, m.ClimbRate, m.Heading) : null,
-        s.Battery is { } b ? new BatteryDto(b.Voltage, b.Current, b.RemainingPercent) : null,
-        s.Gps is { } g ? new GpsDto(g.Fix.ToString(), g.SatellitesVisible) : null,
-        s.Flight is { } f ? new FlightDto(f.Armed, f.FlightMode) : null);
 }

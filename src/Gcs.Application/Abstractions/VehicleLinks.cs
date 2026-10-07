@@ -38,6 +38,9 @@ public interface IVehicleLinkManager
 
     /// <summary>Current link status, or null when no link was ever requested for the vehicle.</summary>
     VehicleLinkStatus? GetStatus(VehicleId vehicleId);
+
+    /// <summary>Every link this process manages (for health checks and metrics).</summary>
+    IReadOnlyList<VehicleLinkStatus> GetAll();
 }
 
 /// <summary>Where the link layer delivers decoded telemetry.</summary>

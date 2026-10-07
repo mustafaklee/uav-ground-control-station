@@ -1,5 +1,6 @@
 using Gcs.Application.Abstractions;
 using Gcs.Application.Common;
+using Gcs.Application.Diagnostics;
 using Gcs.Application.Vehicles;
 using Gcs.Contracts.Auth;
 using Gcs.Contracts.Common;
@@ -21,6 +22,7 @@ public sealed partial class LoginHandler(
     ITokenService tokens,
     IUnitOfWork unitOfWork,
     TimeProvider clock,
+    GcsMetrics metrics,
     ILogger<LoginHandler> logger)
 {
     private static string? _dummyHash;
@@ -37,6 +39,7 @@ public sealed partial class LoginHandler(
         {
             hasher.Verify(_dummyHash ??= hasher.Hash("not-a-real-password-just-for-timing"), password);
             LogLoginFailed(logger, request.Username ?? string.Empty, "unknown user");
+            metrics.Logins.Add(1, new KeyValuePair<string, object?>("result", "invalid_credentials"));
             return UserErrors.InvalidCredentials;
         }
 
@@ -44,6 +47,7 @@ public sealed partial class LoginHandler(
         if (!allowed.IsSuccess)
         {
             LogLoginFailed(logger, user.Username.Value, allowed.Error.Code);
+            metrics.Logins.Add(1, new KeyValuePair<string, object?>("result", allowed.Error.Code == UserErrors.LockedOut.Code ? "locked_out" : "invalid_credentials"));
             return allowed.Error;
         }
 
@@ -53,6 +57,7 @@ public sealed partial class LoginHandler(
             user.RecordFailedLogin(now);
             await unitOfWork.SaveChangesAsync(cancellationToken);
             LogLoginFailed(logger, user.Username.Value, user.IsLockedOutAt(now) ? "wrong password, account locked" : "wrong password");
+            metrics.Logins.Add(1, new KeyValuePair<string, object?>("result", "invalid_credentials"));
             return UserErrors.InvalidCredentials;
         }
 
@@ -65,6 +70,7 @@ public sealed partial class LoginHandler(
         var session = SessionIssuer.Issue(user, refreshTokens, tokens, now);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         LogLoginSucceeded(logger, user.Username.Value, user.Role);
+        metrics.Logins.Add(1, new KeyValuePair<string, object?>("result", "success"));
         return session;
     }
 

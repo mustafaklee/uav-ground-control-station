@@ -1,7 +1,7 @@
 namespace Gcs.Application.Abstractions;
 
-/// <summary>A domain event that was saved in the outbox table and still has to be published.</summary>
-public sealed record OutboxEntry(Guid Id, string Type, string Payload, DateTimeOffset OccurredAt);
+/// <summary>A domain event in the outbox. <c>TraceParent</c> is the W3C trace context of the operation that raised it.</summary>
+public sealed record OutboxEntry(Guid Id, string Type, string Payload, DateTimeOffset OccurredAt, string? TraceParent = null);
 
 /// <summary>
 /// The outbox table. Events are written in the same transaction as the business change, so either both are saved
@@ -20,7 +20,12 @@ public interface IOutboxStore
         int batchSize,
         Func<OutboxEntry, CancellationToken, Task> publish,
         CancellationToken cancellationToken);
+
+    /// <summary>How many events wait and since when: the backlog health check reads this.</summary>
+    Task<OutboxBacklog> GetBacklogAsync(CancellationToken cancellationToken);
 }
+
+public sealed record OutboxBacklog(int Pending, DateTimeOffset? OldestOccurredAt);
 
 /// <summary>Sends an integration event to other parts of the system (RabbitMQ in production).</summary>
 public interface IIntegrationEventPublisher

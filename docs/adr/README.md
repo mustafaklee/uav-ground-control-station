@@ -21,3 +21,4 @@ New ADRs get the next number; superseded ADRs are kept and marked as superseded.
 | [ADR-014](ADR-014-command-lease-ack-and-audit.md) | Command lease (one operator per vehicle), COMMAND_ACK timeout/retry, duplicate refusal, write-ahead append-only audit |
 | [ADR-015](ADR-015-authentication-and-authorization.md) | Own users with PBKDF2, short JWT + rotating refresh tokens, role-to-permission policies, rate limiting |
 | [ADR-016](ADR-016-observability.md) | OpenTelemetry via System.Diagnostics, traceparent through the outbox, background-noise sampler, three-level health, Aspire dashboard |
+| [ADR-017](ADR-017-px4-sitl.md) | Official PX4 SITL image with SIH physics, opt-in compose profile, opt-in flight test in its own CI job |

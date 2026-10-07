@@ -95,7 +95,8 @@ Avalonia GCS ──REST/SignalR──► Gcs.Api ──► Application ──►
 | Rate limiting (global, login, commands), security headers, secrets outside the repo, desktop sign-in | ✅ Phase 8 |
 | OpenTelemetry tracing and metrics, trace context through outbox and RabbitMQ, logs with trace id | ✅ Phase 9 |
 | Health monitoring (`/health/details`: links, outbox backlog, history), Aspire dashboard in compose | ✅ Phase 9 |
-| PX4 SITL integration | Planned (Phase 10) |
+| Real PX4 SITL (SIH, headless) in Docker over MAVLink/UDP, opt-in compose profile | ✅ Phase 10 |
+| Takeoff → mission → RTL flight test against real PX4, own CI job | ✅ Phase 10 |
 
 ## Technology stack
 
@@ -171,10 +172,14 @@ curl http://localhost:8080/health/ready
 | PostgreSQL | localhost:5432 |
 | Redis (unused until Phase 4) | localhost:6379 |
 | MAVLink (UDP, GCS listens) | localhost:14550/udp |
+| MAVLink from PX4 SITL (profile `sitl`) | localhost:14560/udp |
 
 `gcs-migrator` runs once per `up`, applies migrations and exits with code 0. `gcs-simulator` is a simulated PX4 quad
 (system id 1) sending MAVLink to the API; register it with transport `Udp`, host `0.0.0.0`, port `14550` and connect
 (see [docs/mavlink.md](docs/mavlink.md#try-it)).
+
+A real PX4 autopilot is one flag away: `docker compose --profile sitl up -d --build --wait` adds `px4-sitl`
+(system id 10, UDP port 14560). See [PX4 SITL integration](#px4-sitl-integration).
 
 All ports are bound to `127.0.0.1`.
 
@@ -210,6 +215,8 @@ dotnet test --project tests/Gcs.IntegrationTests  # needs Docker (Testcontainers
 * **Unit tests**: domain building blocks and pure logic.
 * **Architecture tests**: enforce the layer dependency rules.
 * **Integration tests**: run the API in memory against real PostgreSQL and RabbitMQ containers.
+* **PX4 SITL flight test** (opt-in, about 2 minutes): `GCS_PX4_SITL=1 dotnet test --project tests/Gcs.IntegrationTests -- --filter-trait "Category=Sitl"`.
+  It flies takeoff → mission → RTL with a real PX4 container ([docs/px4-sitl.md](docs/px4-sitl.md)).
 
 ## Deployment
 
@@ -223,7 +230,14 @@ Details: [docs/mavlink.md](docs/mavlink.md) and [docs/networking.md](docs/networ
 
 ## PX4 SITL integration
 
-Planned for Phase 10: PX4 SITL → MAVLink UDP → GCS backend → SignalR → Avalonia GCS.
+PX4 SITL → MAVLink UDP → GCS backend → SignalR → Avalonia GCS works with the real autopilot: the official PX4 SITL
+image (SIH physics, headless, about 50 MB) runs in Docker and sends MAVLink to the API. An integration test flies
+arm → takeoff → mission → RTL → landing through the public API, and CI runs it in its own job.
+
+![PX4 SITL flight recorded by the GCS](docs/images/px4-sitl-flight-track.svg)
+
+Details, the manual walkthrough and what the real autopilot found: [docs/px4-sitl.md](docs/px4-sitl.md) and
+[ADR-017](docs/adr/ADR-017-px4-sitl.md).
 
 ## API documentation
 
@@ -264,9 +278,10 @@ Published events go to the `gcs.events` topic exchange with routing keys such as
 
 ## Security
 
-Phase 1 baseline: no secrets in the repository, non-root container user, services bound to localhost, validated
-configuration, sanitized correlation ids. JWT authentication, refresh tokens, role and policy based authorization,
-rate limiting, secure headers, HTTPS and audit logging arrive in Phase 8.
+No secrets in the repository, non-root container user, services bound to localhost, validated configuration. Since
+Phase 8: JWT sign-in with rotating refresh tokens, permission-based authorization, rate limiting, security headers and
+an append-only command audit log. HTTPS termination arrives with the deployment in Phase 11. Details:
+[docs/security.md](docs/security.md).
 
 ## Roadmap
 
@@ -279,10 +294,10 @@ rate limiting, secure headers, HTTPS and audit logging arrive in Phase 8.
 | 4 | Telemetry processing, latest state, SignalR ✅ |
 | 5 | Avalonia GCS ✅ |
 | 6 | Mission planner ✅ |
-| 7 | Command system |
-| 8 | Security |
-| 9 | Observability |
-| 10 | PX4 SITL |
+| 7 | Command system ✅ |
+| 8 | Security ✅ |
+| 9 | Observability ✅ |
+| 10 | PX4 SITL ✅ |
 | 11 | Deployment |
 | 12 | Advanced networking |
 

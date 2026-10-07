@@ -45,7 +45,7 @@ The UI and API never see sockets, frames or MAVLink enums. They see `ConnectionS
 | GPS_RAW_INT | 24 | vehicle → GCS | fix type, satellites |
 | ATTITUDE | 30 | vehicle → GCS | roll, pitch, yaw |
 | GLOBAL_POSITION_INT | 33 | vehicle → GCS | lat/lon, altitude MSL and relative |
-| VFR_HUD | 74 | vehicle → GCS | ground/air speed, climb, heading |
+| VFR_HUD | 74 | vehicle → GCS | ground/air speed (NaN without a sensor → `null`), climb, heading |
 | COMMAND_LONG | 76 | GCS → vehicle | commands: ARM, DISARM, TAKEOFF, LAND, RTL, SET_MODE (see [commands.md](commands.md)) |
 | COMMAND_ACK | 77 | vehicle → GCS | command results; resend with `confirmation` + 1 on timeout |
 
@@ -92,6 +92,8 @@ position, velocity, heading and bank angle, a draining battery and ARM/DISARM ha
 
 * **in-process**: register a vehicle with transport `Simulator`;
 * **over UDP**: the `gcs-simulator` container (or `dotnet run --project src/Gcs.Simulation`) sends to the GCS like PX4 SITL.
+* **real PX4**: the `px4-sitl` container (compose profile `sitl`) is PX4 itself, sending to port 14560 as system id 10.
+  See [px4-sitl.md](px4-sitl.md).
 
 ## Try it
 

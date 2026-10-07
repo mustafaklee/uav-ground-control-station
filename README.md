@@ -6,9 +6,10 @@ A modular, testable ground control station (GCS) for managing multiple UAVs over
 ASP.NET Core, PostgreSQL, RabbitMQ, SignalR and Avalonia UI. It is engineered like a defence-industry product:
 reliability, safety, security and observability come before features.
 
-> **Status: Phase 2, vehicle domain.** Vehicles can be registered, listed, updated and retired through a versioned REST API
-> backed by PostgreSQL, with optimistic concurrency and domain events delivered to RabbitMQ through an outbox.
-> MAVLink, telemetry and UI features arrive in the phases listed in the [roadmap](#roadmap).
+> **Status: Phase 3, MAVLink.** The GCS talks MAVLink 2 to vehicles over UDP/TCP or to a built-in simulator: it tracks
+> link health with heartbeats, reconnects with bounded exponential backoff and decodes live telemetry (position,
+> attitude, speed, battery, GPS, arm state, flight mode). Vehicles are managed through a versioned REST API backed by
+> PostgreSQL. SignalR push and the desktop UI arrive in the phases listed in the [roadmap](#roadmap).
 
 ## Project overview
 
@@ -43,7 +44,10 @@ Avalonia GCS ──REST/SignalR──► Gcs.Api ──► Application ──►
 | Vehicle management API (CRUD, paging, ETag concurrency, retire) | ✅ Phase 2 |
 | Domain events via transactional outbox → RabbitMQ | ✅ Phase 2 |
 | Database migrations (dev: on startup, Docker: migrator container) | ✅ Phase 2 |
-| MAVLink transports, simulator, connection lifecycle | Planned (Phase 3) |
+| MAVLink 2 codec verified byte-for-byte against pymavlink | ✅ Phase 3 |
+| UDP/TCP/in-process simulator transports, heartbeat, reconnect with backoff | ✅ Phase 3 |
+| Live telemetry decoding (position, attitude, speed, battery, GPS, mode) | ✅ Phase 3 |
+| Simulated PX4 vehicle (in-process and as a UDP container) | ✅ Phase 3 |
 | Real-time telemetry over SignalR | Planned (Phase 4) |
 | Avalonia operator UI | Planned (Phase 5) |
 | Mission planner | Planned (Phase 6) |
@@ -62,7 +66,7 @@ Avalonia GCS ──REST/SignalR──► Gcs.Api ──► Application ──►
 | Messaging | RabbitMQ 4 (domain events, outbox) |
 | Real time | SignalR |
 | Desktop | Avalonia UI 12, CommunityToolkit.Mvvm |
-| MAVLink | Asv.Mavlink (behind our own abstractions) |
+| MAVLink | Own MAVLink 2 codec, golden-tested against pymavlink ([ADR-010](docs/adr/ADR-010-own-mavlink-codec.md)) |
 | Logging | Serilog |
 | Testing | xUnit v3 (Microsoft.Testing.Platform), Shouldly, NetArchTest, Testcontainers |
 | CI | GitHub Actions |
@@ -111,8 +115,11 @@ curl http://localhost:8080/health/ready
 | RabbitMQ management | http://localhost:15672 |
 | PostgreSQL | localhost:5432 |
 | Redis (unused until Phase 4) | localhost:6379 |
+| MAVLink (UDP, GCS listens) | localhost:14550/udp |
 
-`gcs-migrator` runs once per `up`, applies migrations and exits with code 0.
+`gcs-migrator` runs once per `up`, applies migrations and exits with code 0. `gcs-simulator` is a simulated PX4 quad
+(system id 1) sending MAVLink to the API; register it with transport `Udp`, host `0.0.0.0`, port `14550` and connect
+(see [docs/mavlink.md](docs/mavlink.md#try-it)).
 
 All ports are bound to `127.0.0.1`.
 
@@ -129,6 +136,7 @@ user secrets (Development) → environment variables. Nested keys use `__` in en
 | `Persistence__ApplyMigrationsOnStartup` | Apply migrations when the API starts (Development/tests only) |
 | `Outbox__Enabled`, `Outbox__PollingIntervalMilliseconds`, `Outbox__BatchSize` | Outbox dispatcher |
 | `RabbitMq__EventsExchange` | Topic exchange for domain events (default `gcs.events`) |
+| `Mavlink__HeartbeatTimeoutMilliseconds`, `Mavlink__MaxReconnectAttempts`, ... | Link timing, see [docs/mavlink.md](docs/mavlink.md#link-lifecycle) |
 | `Serilog__MinimumLevel__Default` | Log level |
 
 Options are validated at startup; an invalid configuration stops the API immediately. Secrets are never committed:
@@ -153,8 +161,9 @@ Planned for Phase 11: Ubuntu Server with Nginx (TLS termination), the API contai
 
 ## MAVLink integration
 
-Planned for Phase 3. Transports (UDP, TCP, serial, simulator) sit behind `IMavlinkTransport` / `IMavlinkConnection`;
-the UI and API never touch sockets or packets. See [ADR-007](docs/adr/ADR-007-mavlink-abstraction.md).
+Transports (UDP, TCP, in-process simulator; serial planned) sit behind `IMavlinkTransport`; one `MavlinkConnection` per
+vehicle runs heartbeats, the watchdog and bounded reconnects. The UI and API never touch sockets or packets.
+Details: [docs/mavlink.md](docs/mavlink.md) and [docs/networking.md](docs/networking.md).
 
 ## PX4 SITL integration
 
@@ -173,7 +182,11 @@ In Development the OpenAPI document is served at `/openapi/v1.json`.
 | `GET /api/v1/vehicles/{id}` | One vehicle; response carries `ETag: "<version>"` |
 | `POST /api/v1/vehicles` | Register a vehicle → `201 Created` + `Location` + `ETag` |
 | `PUT /api/v1/vehicles/{id}` | Update; requires `If-Match: "<version>"` (`428` if missing, `412` if stale) |
-| `DELETE /api/v1/vehicles/{id}` | Retire (soft delete, idempotent) → `204` |
+| `DELETE /api/v1/vehicles/{id}` | Retire (soft delete, idempotent) → `204`; also closes its live link |
+| `POST /api/v1/vehicles/{id}/connection` | Start the MAVLink link in the background → `202` + link status |
+| `GET /api/v1/vehicles/{id}/connection` | Link state, last heartbeat, reconnect attempts, fault reason, link quality |
+| `DELETE /api/v1/vehicles/{id}/connection` | Close the link → `204` |
+| `GET /api/v1/vehicles/{id}/telemetry` | Latest live telemetry snapshot (`404 telemetry.not_available` before any) |
 
 Example:
 
@@ -200,7 +213,7 @@ rate limiting, secure headers, HTTPS and audit logging arrive in Phase 8.
 | 0 | Analysis ✅ |
 | 1 | Project foundation ✅ |
 | 2 | Vehicle domain, persistence, CRUD API ✅ |
-| 3 | MAVLink abstraction, UDP transport, simulator, heartbeat, connection lifecycle |
+| 3 | MAVLink abstraction, UDP transport, simulator, heartbeat, connection lifecycle ✅ |
 | 4 | Telemetry processing, latest state, SignalR |
 | 5 | Avalonia GCS |
 | 6 | Mission planner |

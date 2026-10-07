@@ -73,12 +73,49 @@ public enum GpsFixType : byte
 /// <summary>MAV_CMD (subset). Used with COMMAND_LONG.</summary>
 public enum MavCmd : ushort
 {
+    NavWaypoint = 16,
+    NavLoiterTime = 19,
     NavReturnToLaunch = 20,
     NavLand = 21,
     NavTakeoff = 22,
     DoSetMode = 176,
+    DoChangeSpeed = 178,
     ComponentArmDisarm = 400,
+    MissionStart = 300,
     RequestMessage = 512,
+}
+
+/// <summary>MAV_FRAME (subset): how a mission item's coordinates are interpreted.</summary>
+public enum MavFrame : byte
+{
+    Global = 0,
+
+    /// <summary>For items without a position (speed changes, RTL).</summary>
+    Mission = 2,
+
+    /// <summary>Lat/lon in 1e-7 degrees, altitude relative to the home position. The usual choice for missions.</summary>
+    GlobalRelativeAltInt = 6,
+}
+
+/// <summary>MAV_MISSION_RESULT: outcome of a mission transfer, carried by MISSION_ACK.</summary>
+public enum MavMissionResult : byte
+{
+    Accepted = 0,
+    Error = 1,
+    UnsupportedFrame = 2,
+    Unsupported = 3,
+    NoSpace = 4,
+    Invalid = 5,
+    InvalidParam1 = 6,
+    InvalidParam2 = 7,
+    InvalidParam3 = 8,
+    InvalidParam4 = 9,
+    InvalidParam5X = 10,
+    InvalidParam6Y = 11,
+    InvalidParam7 = 12,
+    InvalidSequence = 13,
+    Denied = 14,
+    OperationCancelled = 15,
 }
 
 /// <summary>MAV_RESULT: the outcome of a command, carried by COMMAND_ACK.</summary>

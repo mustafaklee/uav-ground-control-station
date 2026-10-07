@@ -1,5 +1,7 @@
 using Gcs.Application.Abstractions;
+using Gcs.Application;
 using Gcs.Infrastructure.Commands;
+using Gcs.Infrastructure.Health;
 using Gcs.Infrastructure.LinkEvents;
 using Gcs.Infrastructure.Outbox;
 using Gcs.Mavlink;
@@ -43,6 +45,11 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
         services.AddSingleton<ICommandLeaseStore, InMemoryCommandLeaseStore>();
+
+        services.AddOptions<MonitoringOptions>().BindConfiguration(MonitoringOptions.SectionName);
+        services.AddHealthChecks()
+            .AddCheck<VehicleLinksHealthCheck>("vehicle-links", tags: [HealthCheckTags.Monitoring])
+            .AddCheck<OutboxBacklogHealthCheck>("outbox-backlog", tags: [HealthCheckTags.Monitoring]);
 
         return services;
     }

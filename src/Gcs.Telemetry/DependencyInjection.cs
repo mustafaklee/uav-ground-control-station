@@ -1,5 +1,8 @@
 using Gcs.Application.Abstractions;
+using Gcs.Telemetry.History;
+using Gcs.Telemetry.Live;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Gcs.Telemetry;
 
@@ -7,10 +10,20 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddTelemetry(this IServiceCollection services)
     {
-        // One store instance serves both roles: the link layer writes, the API reads.
+        services.AddOptions<TelemetryOptions>()
+            .BindConfiguration(TelemetryOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<LatestTelemetryStore>();
-        services.AddSingleton<ITelemetrySink>(sp => sp.GetRequiredService<LatestTelemetryStore>());
         services.AddSingleton<ITelemetryService>(sp => sp.GetRequiredService<LatestTelemetryStore>());
+        services.AddSingleton<TelemetryHistoryBuffer>();
+        services.AddSingleton<ITelemetrySink, TelemetryPipeline>();
+
+        services.AddHostedService<TelemetryBroadcaster>();
+        services.AddHostedService<TelemetryHistoryWriter>();
+        services.AddHostedService<TelemetryRetentionService>();
         return services;
     }
 }

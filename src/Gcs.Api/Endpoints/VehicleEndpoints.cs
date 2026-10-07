@@ -35,6 +35,7 @@ internal static class VehicleEndpoints
         group.MapDelete("/{id:guid}/connection", DisconnectAsync).WithName("DisconnectVehicle");
         group.MapGet("/{id:guid}/connection", GetConnectionAsync).WithName("GetVehicleConnection");
         group.MapGet("/{id:guid}/telemetry", GetTelemetryAsync).WithName("GetVehicleTelemetry");
+        group.MapGet("/{id:guid}/telemetry/history", GetTelemetryHistoryAsync).WithName("GetVehicleTelemetryHistory");
 
         return endpoints;
     }
@@ -157,6 +158,18 @@ internal static class VehicleEndpoints
     private static async Task<IResult> GetTelemetryAsync(Guid id, GetLatestTelemetryHandler handler, CancellationToken cancellationToken)
     {
         var result = await handler.HandleAsync(id, cancellationToken);
+        return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
+    }
+
+    private static async Task<IResult> GetTelemetryHistoryAsync(
+        Guid id,
+        TelemetryHistoryHandler handler,
+        CancellationToken cancellationToken,
+        DateTimeOffset? from = null,
+        DateTimeOffset? to = null,
+        int limit = TelemetryHistoryQuery.DefaultLimit)
+    {
+        var result = await handler.HandleAsync(id, new TelemetryHistoryQuery(from, to, limit), cancellationToken);
         return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
     }
 }

@@ -139,8 +139,7 @@ services:
   px4-sitl:
     profiles: ["sitl"]
     build:
-      context: .
-      dockerfile: docker/Px4Sitl.Dockerfile
+      context: docker/px4-sitl
     image: gcs-px4-sitl:local
     restart: unless-stopped
     environment:

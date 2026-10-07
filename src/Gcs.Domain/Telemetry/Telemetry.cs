@@ -11,8 +11,11 @@ public sealed record GeoPosition(double Latitude, double Longitude, double Altit
 /// <summary>Orientation in degrees. Yaw 0 = north, positive clockwise.</summary>
 public sealed record AttitudeAngles(double Roll, double Pitch, double Yaw);
 
-/// <summary>Speeds in m/s (climb positive upwards), heading in degrees 0–360.</summary>
-public sealed record MotionState(double GroundSpeed, double AirSpeed, double ClimbRate, double Heading);
+/// <summary>
+/// Speeds in m/s (climb positive upwards), heading in degrees 0–360. Air speed is null when the vehicle has no air speed
+/// sensor (PX4 multicopters report NaN).
+/// </summary>
+public sealed record MotionState(double GroundSpeed, double? AirSpeed, double ClimbRate, double Heading);
 
 /// <summary>Main battery. Each value is null when the vehicle reports it as unknown.</summary>
 public sealed record BatteryState(double? Voltage, double? Current, int? RemainingPercent);

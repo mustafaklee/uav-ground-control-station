@@ -57,7 +57,7 @@ public sealed partial class TelemetryViewModel : ObservableObject
         if (telemetry.Motion is { } m)
         {
             GroundSpeed = $"{m.GroundSpeed.ToString("F1", Culture)} m/s";
-            AirSpeed = $"{m.AirSpeed.ToString("F1", Culture)} m/s";
+            AirSpeed = m.AirSpeed is { } air ? $"{air.ToString("F1", Culture)} m/s" : NoValue;
             ClimbRate = $"{m.ClimbRate.ToString("+0.0;-0.0;0.0", Culture)} m/s";
             Heading = $"{m.Heading.ToString("F0", Culture)}°";
             HeadingDegrees = m.Heading;

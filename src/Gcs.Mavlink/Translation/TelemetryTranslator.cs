@@ -16,7 +16,12 @@ public static class TelemetryTranslator
     private const double MillivoltsPerVolt = 1000.0;
     private const double CentiampsPerAmp = 100.0;
 
-    /// <summary>Returns null for messages that carry no telemetry (commands, acknowledgements).</summary>
+    /// <summary>
+    /// Returns null for messages that carry no telemetry (commands, acknowledgements) and for messages whose values are
+    /// not numbers yet. MAVLink uses NaN for "unknown" in float fields: PX4 sends NaN air speed on a multicopter
+    /// without an air speed sensor, and an estimator that is still initializing can send NaN angles. NaN and infinity
+    /// cannot be written as JSON, so they must never get past this point.
+    /// </summary>
     public static TelemetryUpdate? Translate(IMavlinkMessage message, DateTimeOffset receivedAt) => message switch
     {
         HeartbeatMessage hb => new TelemetryUpdate(receivedAt, Flight: new FlightState(
@@ -28,11 +33,11 @@ public static class TelemetryTranslator
             gp.AltitudeMslMillimetres / MillimetresPerMetre,
             gp.RelativeAltitudeMillimetres / MillimetresPerMetre)),
 
-        AttitudeMessage at => new TelemetryUpdate(receivedAt, Attitude: new AttitudeAngles(
+        AttitudeMessage at when AllFinite(at.Roll, at.Pitch, at.Yaw) => new TelemetryUpdate(receivedAt, Attitude: new AttitudeAngles(
             RadiansToDegrees(at.Roll), RadiansToDegrees(at.Pitch), NormalizeHeading(RadiansToDegrees(at.Yaw)))),
 
-        VfrHudMessage hud => new TelemetryUpdate(receivedAt, Motion: new MotionState(
-            hud.Groundspeed, hud.Airspeed, hud.Climb, NormalizeHeading(hud.Heading))),
+        VfrHudMessage hud when AllFinite(hud.Groundspeed, hud.Climb) => new TelemetryUpdate(receivedAt, Motion: new MotionState(
+            hud.Groundspeed, float.IsFinite(hud.Airspeed) ? hud.Airspeed : null, hud.Climb, NormalizeHeading(hud.Heading))),
 
         SysStatusMessage sys => new TelemetryUpdate(receivedAt, Battery: new BatteryState(
             sys.VoltageBatteryMillivolts == UnknownVoltage ? null : sys.VoltageBatteryMillivolts / MillivoltsPerVolt,
@@ -43,6 +48,8 @@ public static class TelemetryTranslator
 
         _ => null,
     };
+
+    private static bool AllFinite(float a, float b, float c = 0) => float.IsFinite(a) && float.IsFinite(b) && float.IsFinite(c);
 
     private static double RadiansToDegrees(float radians) => radians * 180.0 / Math.PI;
 

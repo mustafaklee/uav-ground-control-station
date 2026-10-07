@@ -68,4 +68,6 @@ internal sealed class FakeLinkManager : IVehicleLinkManager
     }
 
     public VehicleLinkStatus? GetStatus(VehicleId vehicleId) => null;
+
+    public IReadOnlyList<VehicleLinkStatus> GetAll() => [];
 }

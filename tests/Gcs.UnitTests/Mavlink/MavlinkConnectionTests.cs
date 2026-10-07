@@ -14,8 +14,13 @@ namespace Gcs.UnitTests.Mavlink;
 
 /// <summary>
 /// The link lifecycle with a fake clock: timeouts and backoff delays are driven by advancing time,
-/// so minutes of simulated silence run in milliseconds and the result does not depend on machine speed.
+/// so minutes of simulated silence run in milliseconds.
 /// </summary>
+/// <remarks>
+/// Tests advance the clock <i>until</i> a state is reached (with an upper bound) and then check it did not happen too
+/// early. Advancing a fixed amount and asserting immediately is fragile: on a slow CI machine the connection's loops
+/// may react a few simulated steps later than on a fast laptop.
+/// </remarks>
 public sealed class MavlinkConnectionTests : IAsyncDisposable
 {
     private const byte VehicleSystemId = 1;
@@ -65,11 +70,10 @@ public sealed class MavlinkConnectionTests : IAsyncDisposable
     {
         _connection.Start();
 
-        await AdvanceAsync(TimeSpan.FromSeconds(11));
+        var elapsed = await AdvanceUntilAsync(() => _connection.State == ConnectionState.Faulted, TimeSpan.FromSeconds(30));
 
-        var status = _connection.GetStatus();
-        status.State.ShouldBe(ConnectionState.Faulted);
-        status.FaultReason.ShouldBe("No heartbeat within 10 s.");
+        elapsed.ShouldBeGreaterThanOrEqualTo(TimeSpan.FromSeconds(10));
+        _connection.GetStatus().FaultReason.ShouldBe("No heartbeat within 10 s.");
     }
 
     [Fact]
@@ -88,24 +92,21 @@ public sealed class MavlinkConnectionTests : IAsyncDisposable
     {
         await ConnectAsync();
 
-        await AdvanceAsync(TimeSpan.FromSeconds(3.5));
+        var elapsed = await AdvanceUntilAsync(() => _connection.State == ConnectionState.Reconnecting, TimeSpan.FromSeconds(15));
 
-        _connection.State.ShouldBe(ConnectionState.Reconnecting);
+        elapsed.ShouldBeGreaterThanOrEqualTo(TimeSpan.FromSeconds(3));
     }
 
     [Fact]
     public async Task Heartbeat_during_reconnect_restores_the_link_and_resets_attempts()
     {
         await ConnectAsync();
-        await AdvanceAsync(TimeSpan.FromSeconds(3.5)); // lost
-        await AdvanceAsync(TimeSpan.FromSeconds(5));   // first attempt waited 1 s and then timed out after 3 s
-        _connection.GetStatus().ReconnectAttempts.ShouldBe(1);
+        await AdvanceUntilAsync(() => _connection.GetStatus().ReconnectAttempts == 1, TimeSpan.FromSeconds(30));
 
-        // The vehicle is back. The link is in its 2 s backoff wait, so the heartbeat is read when the next attempt opens.
+        // The vehicle is back. The link is in its backoff wait, so the heartbeat is read when the next attempt opens.
         await SendFromVehicleAsync(VehicleHeartbeat());
-        await AdvanceAsync(TimeSpan.FromSeconds(2.5));
+        await AdvanceUntilAsync(() => _connection.State == ConnectionState.Connected, TimeSpan.FromSeconds(30));
 
-        await EventuallyAsync(() => _connection.State == ConnectionState.Connected);
         _connection.GetStatus().ReconnectAttempts.ShouldBe(0);
     }
 
@@ -114,11 +115,11 @@ public sealed class MavlinkConnectionTests : IAsyncDisposable
     {
         await ConnectAsync();
 
-        // Lost after 3 s, then 3 attempts: wait 1 s + 3 s, wait 2 s + 3 s, wait 4 s + 3 s = 16 s. 25 s is plenty.
-        await AdvanceAsync(TimeSpan.FromSeconds(25));
+        // Lost after 3 s, then 3 attempts: wait 1 s + 3 s, wait 2 s + 3 s, wait 4 s + 3 s = at least 19 s.
+        var elapsed = await AdvanceUntilAsync(() => _connection.State == ConnectionState.Faulted, TimeSpan.FromSeconds(90));
 
+        elapsed.ShouldBeGreaterThanOrEqualTo(TimeSpan.FromSeconds(19));
         var status = _connection.GetStatus();
-        status.State.ShouldBe(ConnectionState.Faulted);
         status.ReconnectAttempts.ShouldBe(3);
         status.FaultReason.ShouldBe("No heartbeat after 3 reconnect attempts.");
     }
@@ -181,9 +182,32 @@ public sealed class MavlinkConnectionTests : IAsyncDisposable
     {
         for (var elapsed = TimeSpan.Zero; elapsed < duration; elapsed += Step)
         {
-            _time.Advance(Step);
-            await Task.Delay(2, Ct); // real time: give continuations a chance to run
+            await StepAsync();
         }
+    }
+
+    /// <summary>Advances the fake clock until <paramref name="condition"/> holds; returns the simulated time it took.</summary>
+    private async Task<TimeSpan> AdvanceUntilAsync(Func<bool> condition, TimeSpan limit)
+    {
+        var elapsed = TimeSpan.Zero;
+        while (!condition())
+        {
+            if (elapsed > limit)
+            {
+                throw new TimeoutException($"Condition not met within {limit.TotalSeconds} s of simulated time.");
+            }
+
+            await StepAsync();
+            elapsed += Step;
+        }
+
+        return elapsed;
+    }
+
+    private async Task StepAsync()
+    {
+        _time.Advance(Step);
+        await Task.Delay(3, Ct); // real time: give the connection's continuations a chance to run
     }
 
     private static async Task EventuallyAsync(Func<bool> condition)

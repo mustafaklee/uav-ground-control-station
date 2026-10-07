@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using Gcs.Contracts.Commands;
 using Gcs.Contracts.Common;
 using Gcs.Contracts.Missions;
 using Gcs.Contracts.Vehicles;
@@ -31,6 +32,20 @@ public interface IGcsApiClient
     Task<MissionResponse> UploadMissionAsync(Guid missionId, Guid vehicleId, CancellationToken cancellationToken);
 
     Task<VehicleMissionResponse> DownloadVehicleMissionAsync(Guid vehicleId, CancellationToken cancellationToken);
+
+    Task<CommandLeaseResponse> GetCommandLeaseAsync(Guid vehicleId, CancellationToken cancellationToken);
+
+    /// <summary>Takes control, or renews control this operator already has.</summary>
+    Task<CommandLeaseResponse> AcquireCommandLeaseAsync(Guid vehicleId, CancellationToken cancellationToken);
+
+    Task ReleaseCommandLeaseAsync(Guid vehicleId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<string>> GetFlightModesAsync(Guid vehicleId, CancellationToken cancellationToken);
+
+    /// <summary>Returns the audit entry when the vehicle accepted; throws <see cref="ApiProblemException"/> otherwise.</summary>
+    Task<CommandAuditResponse> SendCommandAsync(Guid vehicleId, SendCommandRequest command, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<CommandAuditResponse>> GetCommandHistoryAsync(Guid vehicleId, CancellationToken cancellationToken);
 }
 
 /// <summary>Typed HTTP client for the GCS REST API (v1).</summary>
@@ -103,6 +118,31 @@ public sealed class GcsApiClient(HttpClient http) : IGcsApiClient
 
     public Task<VehicleMissionResponse> DownloadVehicleMissionAsync(Guid vehicleId, CancellationToken cancellationToken) =>
         SendAsync<VehicleMissionResponse>(new HttpRequestMessage(HttpMethod.Get, $"{Vehicles}/{vehicleId}/mission"), cancellationToken);
+
+    // The operator name travels in the X-Operator header, set once on the HttpClient (see App).
+    public Task<CommandLeaseResponse> GetCommandLeaseAsync(Guid vehicleId, CancellationToken cancellationToken) =>
+        SendAsync<CommandLeaseResponse>(new HttpRequestMessage(HttpMethod.Get, $"{Vehicles}/{vehicleId}/command-lease"), cancellationToken);
+
+    public Task<CommandLeaseResponse> AcquireCommandLeaseAsync(Guid vehicleId, CancellationToken cancellationToken) =>
+        SendAsync<CommandLeaseResponse>(new HttpRequestMessage(HttpMethod.Post, $"{Vehicles}/{vehicleId}/command-lease"), cancellationToken);
+
+    public async Task ReleaseCommandLeaseAsync(Guid vehicleId, CancellationToken cancellationToken)
+    {
+        using var response = await http.DeleteAsync(new Uri($"{Vehicles}/{vehicleId}/command-lease", UriKind.Relative), cancellationToken);
+        await ApiProblemException.ThrowIfFailedAsync(response, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<string>> GetFlightModesAsync(Guid vehicleId, CancellationToken cancellationToken) =>
+        (await SendAsync<FlightModesResponse>(new HttpRequestMessage(HttpMethod.Get, $"{Vehicles}/{vehicleId}/flight-modes"), cancellationToken)).Modes;
+
+    public Task<CommandAuditResponse> SendCommandAsync(Guid vehicleId, SendCommandRequest command, CancellationToken cancellationToken) =>
+        SendAsync<CommandAuditResponse>(
+            new HttpRequestMessage(HttpMethod.Post, $"{Vehicles}/{vehicleId}/commands") { Content = JsonContent.Create(command) },
+            cancellationToken);
+
+    public async Task<IReadOnlyList<CommandAuditResponse>> GetCommandHistoryAsync(Guid vehicleId, CancellationToken cancellationToken) =>
+        (await SendAsync<PagedResponse<CommandAuditResponse>>(
+            new HttpRequestMessage(HttpMethod.Get, $"{Vehicles}/{vehicleId}/commands?pageSize=10"), cancellationToken)).Items;
 
     private async Task<T> SendAsync<T>(HttpRequestMessage request, CancellationToken cancellationToken)
     {

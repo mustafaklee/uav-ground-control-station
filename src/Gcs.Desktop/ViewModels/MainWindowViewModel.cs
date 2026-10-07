@@ -7,7 +7,7 @@ using Gcs.Desktop.Services;
 namespace Gcs.Desktop.ViewModels;
 
 /// <summary>
-/// The GCS main screen: vehicle list, selected vehicle's live telemetry, connect/disconnect, backend status.
+/// The GCS main screen: vehicle list, selected vehicle's live telemetry and controls, connect/disconnect, backend status.
 /// It only talks to <see cref="IGcsApiClient"/> and <see cref="IRealtimeClient"/>, so it is tested without a server.
 /// </summary>
 public sealed partial class MainWindowViewModel : ObservableObject
@@ -16,16 +16,24 @@ public sealed partial class MainWindowViewModel : ObservableObject
     private readonly IRealtimeClient _realtime;
     private readonly IUiDispatcher _ui;
 
-    public MainWindowViewModel(IGcsApiClient api, IRealtimeClient realtime, IUiDispatcher ui, Uri apiBaseUrl)
+    public MainWindowViewModel(
+        IGcsApiClient api,
+        IRealtimeClient realtime,
+        IUiDispatcher ui,
+        Uri apiBaseUrl,
+        IConfirmationService? confirmation = null,
+        string operatorName = "operator")
     {
         _api = api;
         _realtime = realtime;
         _ui = ui;
         ServerAddress = apiBaseUrl.ToString();
         Planner = new MissionPlannerViewModel(api, () => SelectedVehicle);
+        Commands = new CommandPanelViewModel(api, confirmation ?? new DenyAllConfirmation(), () => SelectedVehicle, operatorName);
 
         _realtime.TelemetryReceived += telemetry => _ui.Post(() => OnTelemetry(telemetry));
         _realtime.LinkStatusReceived += status => _ui.Post(() => OnLinkStatus(status));
+        _realtime.CommandLeaseReceived += lease => _ui.Post(() => Commands.Apply(lease));
         _realtime.ConnectionStateChanged += state => _ui.Post(() => BackendState = state);
     }
 
@@ -38,6 +46,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public TelemetryViewModel Telemetry { get; } = new();
 
     public MissionPlannerViewModel Planner { get; }
+
+    public CommandPanelViewModel Commands { get; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BackendStatus))]
@@ -112,6 +122,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
     async partial void OnSelectedVehicleChanged(VehicleItemViewModel? oldValue, VehicleItemViewModel? newValue)
     {
         Telemetry.Reset();
+        await Commands.LoadAsync(CancellationToken.None);
         try
         {
             if (oldValue is not null)
@@ -155,6 +166,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             ConnectCommand.NotifyCanExecuteChanged();
             DisconnectCommand.NotifyCanExecuteChanged();
+            Commands.OnLinkChanged();
         }
     }
 
@@ -174,4 +186,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
             ErrorMessage = ex.Message;
         }
     }
+}
+
+/// <summary>Used when no dialog is available (tests, headless): critical commands are never confirmed implicitly.</summary>
+internal sealed class DenyAllConfirmation : IConfirmationService
+{
+    public Task<bool> ConfirmAsync(string title, string message, string confirmText) => Task.FromResult(false);
 }

@@ -68,3 +68,32 @@ public sealed class NullableDoubleConverter : IValueConverter
             : Avalonia.Data.BindingOperations.DoNothing; // keep the last valid value while the operator is still typing
     }
 }
+
+/// <summary>Last command answer: red for a failure, green for success or a cancelled dialog.</summary>
+public sealed class ResultBrush : IValueConverter
+{
+    public static readonly ResultBrush Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is true ? Brushes.OrangeRed : Brushes.LimeGreen;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
+/// <summary>Audit outcome colour: accepted green, refused or rejected orange, timed out red (state unknown).</summary>
+public sealed class OutcomeBrush : IValueConverter
+{
+    public static readonly OutcomeBrush Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch
+    {
+        "Accepted" => Brushes.LimeGreen,
+        "Rejected" or "Refused" => Brushes.Orange,
+        "TimedOut" => Brushes.OrangeRed,
+        _ => Brushes.Gray,
+    };
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}

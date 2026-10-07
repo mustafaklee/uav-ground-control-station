@@ -1,4 +1,5 @@
 using System.Net;
+using Gcs.Contracts.Commands;
 using Gcs.Contracts.Missions;
 using Gcs.Contracts.Vehicles;
 using Gcs.Desktop.Services;
@@ -80,6 +81,61 @@ internal sealed class FakeApi : IGcsApiClient
     public Task<VehicleMissionResponse> DownloadVehicleMissionAsync(Guid vehicleId, CancellationToken cancellationToken) =>
         Task.FromResult(new VehicleMissionResponse(vehicleId, [.. OnVehicle]));
 
+    /// <summary>Who holds each vehicle's lease. <see cref="Operator"/> is the name this client acts as.</summary>
+    public Dictionary<Guid, string> LeaseHolders { get; } = [];
+
+    public string Operator { get; set; } = "operator";
+
+    public List<SendCommandRequest> SentCommands { get; } = [];
+
+    /// <summary>When set, commands fail with this problem, as the API would answer (409, 504, ...).</summary>
+    public ApiProblemException? CommandFailure { get; set; }
+
+    public Task<CommandLeaseResponse> GetCommandLeaseAsync(Guid vehicleId, CancellationToken cancellationToken) =>
+        Task.FromResult(Lease(vehicleId));
+
+    public Task<CommandLeaseResponse> AcquireCommandLeaseAsync(Guid vehicleId, CancellationToken cancellationToken)
+    {
+        if (LeaseHolders.TryGetValue(vehicleId, out var holder) && holder != Operator)
+        {
+            throw new ApiProblemException(HttpStatusCode.Conflict, "command.lease_held", $"{holder} controls this vehicle.", new Dictionary<string, string[]>());
+        }
+
+        LeaseHolders[vehicleId] = Operator;
+        return Task.FromResult(Lease(vehicleId));
+    }
+
+    public Task ReleaseCommandLeaseAsync(Guid vehicleId, CancellationToken cancellationToken)
+    {
+        LeaseHolders.Remove(vehicleId);
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<string>> GetFlightModesAsync(Guid vehicleId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<string>>(["AUTO.LOITER", "POSCTL"]);
+
+    public Task<CommandAuditResponse> SendCommandAsync(Guid vehicleId, SendCommandRequest command, CancellationToken cancellationToken)
+    {
+        SentCommands.Add(command);
+        if (CommandFailure is { } failure)
+        {
+            throw failure;
+        }
+
+        return Task.FromResult(Audit(vehicleId, command.Command!, "Accepted"));
+    }
+
+    public Task<IReadOnlyList<CommandAuditResponse>> GetCommandHistoryAsync(Guid vehicleId, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<CommandAuditResponse>>([.. SentCommands.Select(c => Audit(vehicleId, c.Command!, "Accepted")).Reverse()]);
+
+    private CommandLeaseResponse Lease(Guid vehicleId) =>
+        LeaseHolders.TryGetValue(vehicleId, out var holder)
+            ? new CommandLeaseResponse(vehicleId, holder, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddMinutes(1))
+            : new CommandLeaseResponse(vehicleId, null, null, null);
+
+    private CommandAuditResponse Audit(Guid vehicleId, string command, string outcome) =>
+        new(Guid.NewGuid(), vehicleId, "UAV-01", Operator, command, null, outcome, null, 1, "GCS-API", DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
+
     private MissionResponse Store(Guid id, int version, SaveMissionRequest request)
     {
         var items = request.Items ?? [];
@@ -109,6 +165,8 @@ internal sealed class FakeRealtime : IRealtimeClient
 
     public event Action<VehicleLinkResponse>? LinkStatusReceived;
 
+    public event Action<CommandLeaseResponse>? CommandLeaseReceived;
+
     public event Action<BackendConnectionState>? ConnectionStateChanged;
 
     public BackendConnectionState State { get; private set; }
@@ -137,6 +195,8 @@ internal sealed class FakeRealtime : IRealtimeClient
 
     public void RaiseLinkStatus(VehicleLinkResponse status) => LinkStatusReceived?.Invoke(status);
 
+    public void RaiseLease(CommandLeaseResponse lease) => CommandLeaseReceived?.Invoke(lease);
+
     public void RaiseState(BackendConnectionState state)
     {
         State = state;
@@ -144,6 +204,20 @@ internal sealed class FakeRealtime : IRealtimeClient
     }
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}
+
+/// <summary>Answers confirmation dialogs with a scripted answer and remembers what was asked.</summary>
+internal sealed class ScriptedConfirmation : IConfirmationService
+{
+    public bool Answer { get; set; } = true;
+
+    public List<string> Asked { get; } = [];
+
+    public Task<bool> ConfirmAsync(string title, string message, string confirmText)
+    {
+        Asked.Add(title);
+        return Task.FromResult(Answer);
+    }
 }
 
 /// <summary>Runs "UI thread" work immediately, so tests do not need an Avalonia dispatcher.</summary>

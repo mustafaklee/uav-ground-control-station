@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using Gcs.Application.Diagnostics;
-using Npgsql;
+using Gcs.Infrastructure;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -54,7 +54,7 @@ public static class ObservabilityExtensions
                         aspnet.RecordException = true;
                     })
                     .AddHttpClientInstrumentation()
-                    .AddNpgsql()
+                    .AddAdapterInstrumentation()
                     .SetSampler(new ParentBasedSampler(new BackgroundNoiseSampler()));
                 if (otlp is not null)
                 {

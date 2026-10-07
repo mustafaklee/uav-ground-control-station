@@ -9,8 +9,10 @@ public sealed record HealthReportResponse(
     double TotalDurationMs,
     IReadOnlyList<HealthCheckEntryResponse> Checks);
 
+/// <summary><c>Data</c> is filled only on <c>/health/details</c> (counts, ages, which vehicles are affected).</summary>
 public sealed record HealthCheckEntryResponse(
     string Name,
     string Status,
     double DurationMs,
-    string? Description);
+    string? Description,
+    IReadOnlyDictionary<string, object>? Data = null);

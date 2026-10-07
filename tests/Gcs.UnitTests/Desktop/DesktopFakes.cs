@@ -1,3 +1,5 @@
+using System.Net;
+using Gcs.Contracts.Missions;
 using Gcs.Contracts.Vehicles;
 using Gcs.Desktop.Services;
 
@@ -34,6 +36,68 @@ internal sealed class FakeApi : IGcsApiClient
     {
         Calls.Add(("disconnect", vehicleId));
         return Task.CompletedTask;
+    }
+
+    /// <summary>Saved missions, keyed by id. Saving applies a simplified version of the server's flyability rules.</summary>
+    public Dictionary<Guid, MissionResponse> SavedMissions { get; } = [];
+
+    public List<(Guid MissionId, Guid VehicleId)> Uploads { get; } = [];
+
+    public List<MissionItemDto> OnVehicle { get; } = [];
+
+    public Task<IReadOnlyList<MissionSummaryResponse>> GetMissionsAsync(CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<MissionSummaryResponse>>([.. SavedMissions.Values.Select(m =>
+            new MissionSummaryResponse(m.Id, m.Name, m.Status, m.Items.Count, m.IsFlyable, 0, m.LastUpload, m.Version, m.UpdatedAt))]);
+
+    public Task<MissionResponse> GetMissionAsync(Guid missionId, CancellationToken cancellationToken) =>
+        Task.FromResult(SavedMissions[missionId]);
+
+    public Task<MissionResponse> CreateMissionAsync(SaveMissionRequest request, CancellationToken cancellationToken) =>
+        Task.FromResult(Store(Guid.NewGuid(), 1, request));
+
+    public Task<MissionResponse> UpdateMissionAsync(Guid missionId, int version, SaveMissionRequest request, CancellationToken cancellationToken)
+    {
+        var current = SavedMissions[missionId];
+        return current.Version != version
+            ? throw new ApiProblemException(HttpStatusCode.PreconditionFailed, "concurrency.conflict", "The mission was changed by someone else.", new Dictionary<string, string[]>())
+            : Task.FromResult(Store(missionId, version + 1, request));
+    }
+
+    public Task ArchiveMissionAsync(Guid missionId, CancellationToken cancellationToken)
+    {
+        SavedMissions.Remove(missionId);
+        return Task.CompletedTask;
+    }
+
+    public Task<MissionResponse> UploadMissionAsync(Guid missionId, Guid vehicleId, CancellationToken cancellationToken)
+    {
+        Uploads.Add((missionId, vehicleId));
+        var mission = SavedMissions[missionId] with { LastUpload = new MissionUploadDto(vehicleId, true, DateTimeOffset.UnixEpoch, null) };
+        SavedMissions[missionId] = mission;
+        return Task.FromResult(mission);
+    }
+
+    public Task<VehicleMissionResponse> DownloadVehicleMissionAsync(Guid vehicleId, CancellationToken cancellationToken) =>
+        Task.FromResult(new VehicleMissionResponse(vehicleId, [.. OnVehicle]));
+
+    private MissionResponse Store(Guid id, int version, SaveMissionRequest request)
+    {
+        var items = request.Items ?? [];
+        var issues = new List<MissionIssueDto>();
+        if (items.Count == 0 || items[0].Command != "Takeoff")
+        {
+            issues.Add(new MissionIssueDto(0, "first_not_takeoff", "The first item must be a takeoff."));
+        }
+
+        if (!items.Any(i => i.Command == "Waypoint"))
+        {
+            issues.Add(new MissionIssueDto(null, "no_waypoints", "Add at least one waypoint."));
+        }
+
+        var mission = new MissionResponse(
+            id, request.Name ?? string.Empty, "Draft", items, issues, issues.Count == 0, 0, null, version, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
+        SavedMissions[id] = mission;
+        return mission;
     }
 
     public static VehicleLinkResponse Link(Guid id, string state) => new(id, state, null, 0, null, new LinkQualityDto(0, 0, 0, 0));

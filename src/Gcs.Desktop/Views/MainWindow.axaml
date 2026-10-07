@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Gcs.Desktop.ViewModels"
+        xmlns:contracts="using:Gcs.Contracts.Missions"
         xmlns:mapsui="clr-namespace:Mapsui.UI.Avalonia;assembly=Mapsui.UI.Avalonia"
         x:Class="Gcs.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -69,7 +70,7 @@
       </DockPanel>
     </Border>
 
-    <Grid ColumnDefinitions="*,340">
+    <Grid ColumnDefinitions="*,400">
       <!-- Map -->
       <Panel Grid.Column="0">
         <mapsui:MapControl x:Name="MapControl" />
@@ -78,12 +79,17 @@
         </Border>
         <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" Padding="8,4"
                 Background="#CC0F1720" CornerRadius="4">
-          <CheckBox x:Name="FollowCheckBox" Content="Follow vehicle" IsChecked="True" Foreground="#E6EDF3" />
+          <StackPanel Spacing="2">
+            <CheckBox x:Name="FollowCheckBox" Content="Follow vehicle" IsChecked="True" Foreground="#E6EDF3" />
+            <CheckBox Content="Click map to add waypoints" IsChecked="{Binding Planner.IsAddingWaypoints}" Foreground="#F1C40F" />
+          </StackPanel>
         </Border>
       </Panel>
 
-      <!-- Right side panels -->
-      <ScrollViewer Grid.Column="1" Padding="8">
+      <!-- Right side: Flight (live data) and Mission (planner) tabs -->
+      <TabControl Grid.Column="1" Padding="0">
+        <TabItem Header="Flight" FontSize="14">
+      <ScrollViewer Padding="8">
         <StackPanel>
           <Border Classes="panel">
             <StackPanel>
@@ -201,6 +207,110 @@
           </Border>
         </StackPanel>
       </ScrollViewer>
+        </TabItem>
+
+        <TabItem Header="Mission" FontSize="14">
+          <ScrollViewer Padding="8">
+            <StackPanel DataContext="{Binding Planner}" x:DataType="vm:MissionPlannerViewModel">
+              <Border Classes="panel">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="header" Text="MISSIONS" />
+                  <Grid ColumnDefinitions="*,Auto">
+                    <ComboBox ItemsSource="{Binding Missions}" SelectedItem="{Binding SelectedMission}"
+                              PlaceholderText="Open a saved mission" HorizontalAlignment="Stretch">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="contracts:MissionSummaryResponse">
+                          <TextBlock>
+                            <Run Text="{Binding Name}" />
+                            <Run Text="{Binding ItemCount, StringFormat=' · {0} items'}" Foreground="#8A9AAB" />
+                          </TextBlock>
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Grid.Column="1" Content="New" Command="{Binding NewMissionCommand}" Margin="6,0,0,0" />
+                  </Grid>
+                  <TextBlock Classes="label" Text="Name" />
+                  <TextBox Text="{Binding Name}" />
+                  <StackPanel Orientation="Horizontal" Spacing="16">
+                    <TextBlock Classes="label" Text="{Binding Distance, StringFormat='Route: {0}'}" />
+                    <TextBlock Classes="label" Text="{Binding Items.Count, StringFormat='Items: {0}'}" />
+                    <TextBlock Text="FLYABLE" Foreground="LimeGreen" FontSize="12" FontWeight="Bold" IsVisible="{Binding IsFlyable}" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+
+              <Border Classes="panel">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="header" Text="ITEMS" />
+                  <ToggleButton Content="Click map to add waypoints" IsChecked="{Binding IsAddingWaypoints}" HorizontalAlignment="Stretch" />
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="+ Takeoff" Command="{Binding AddItemCommand}" CommandParameter="Takeoff" />
+                    <Button Content="+ RTL" Command="{Binding AddItemCommand}" CommandParameter="ReturnToLaunch" />
+                    <Button Content="+ Land" Command="{Binding AddItemCommand}" CommandParameter="Land" />
+                  </StackPanel>
+                  <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" Background="Transparent" MaxHeight="260">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="vm:MissionItemViewModel">
+                        <StackPanel Margin="0,1">
+                          <TextBlock Text="{Binding Title}" Foreground="#E6EDF3" FontWeight="SemiBold" />
+                          <TextBlock Text="{Binding Issue}" Foreground="#E74C3C" FontSize="11" TextWrapping="Wrap"
+                                     IsVisible="{Binding Issue, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        </StackPanel>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="Up" Command="{Binding MoveUpCommand}" />
+                    <Button Content="Down" Command="{Binding MoveDownCommand}" />
+                    <Button Content="Remove" Command="{Binding RemoveItemCommand}" />
+                  </StackPanel>
+                </StackPanel>
+              </Border>
+
+              <Border Classes="panel" IsVisible="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <StackPanel DataContext="{Binding SelectedItem}" x:DataType="vm:MissionItemViewModel" Spacing="4">
+                  <TextBlock Classes="header" Text="{Binding Title, StringFormat='EDIT ITEM {0}'}" />
+                  <ComboBox ItemsSource="{x:Static vm:MissionItemViewModel.Commands}" SelectedItem="{Binding Command}" HorizontalAlignment="Stretch" />
+                  <Grid ColumnDefinitions="*,8,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+                    <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Latitude (deg)" />
+                    <TextBlock Grid.Row="0" Grid.Column="2" Classes="label" Text="Longitude (deg)" />
+                    <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding Latitude, Converter={x:Static vm:NullableDoubleConverter.Instance}}" />
+                    <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding Longitude, Converter={x:Static vm:NullableDoubleConverter.Instance}}" />
+                    <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Altitude (m above home)" Margin="0,4,0,0" />
+                    <TextBlock Grid.Row="2" Grid.Column="2" Classes="label" Text="Hold (s, loiter)" Margin="0,4,0,0" />
+                    <TextBox Grid.Row="3" Grid.Column="0" Text="{Binding Altitude, Converter={x:Static vm:NullableDoubleConverter.Instance}}" />
+                    <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding HoldSeconds, Converter={x:Static vm:NullableDoubleConverter.Instance}}" />
+                    <TextBlock Grid.Row="4" Grid.Column="0" Classes="label" Text="Speed (m/s, empty = keep)" Margin="0,4,0,0" />
+                    <TextBox Grid.Row="5" Grid.Column="0" Text="{Binding Speed, Converter={x:Static vm:NullableDoubleConverter.Instance}}" />
+                  </Grid>
+                </StackPanel>
+              </Border>
+
+              <Border Classes="panel">
+                <StackPanel Spacing="6">
+                  <TextBlock Classes="header" Text="CHECKS AND TRANSFER" />
+                  <ItemsControl ItemsSource="{Binding Issues}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate x:DataType="x:String">
+                        <TextBlock Text="{Binding StringFormat='- {0}'}" Foreground="#F39C12" FontSize="12" TextWrapping="Wrap" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="Save" Command="{Binding SaveCommand}" />
+                    <Button Content="Upload to vehicle" Command="{Binding UploadCommand}" Classes="accent" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Button Content="Read from vehicle" Command="{Binding DownloadFromVehicleCommand}" />
+                    <Button Content="Archive" Command="{Binding ArchiveCommand}" IsEnabled="{Binding IsSaved}" />
+                  </StackPanel>
+                  <TextBlock Text="{Binding Status}" Foreground="#C9D1D9" FontSize="12" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </ScrollViewer>
+        </TabItem>
+      </TabControl>
     </Grid>
   </DockPanel>
 </Window>

@@ -1,16 +1,22 @@
 using Gcs.Contracts.Vehicles;
 using Mapsui;
+using Mapsui.Extensions;
 using Mapsui.Layers;
+using Mapsui.Nts;
 using Mapsui.Projections;
 using Mapsui.Styles;
 using Mapsui.Tiling;
+using NetTopologySuite.Geometries;
 
 namespace Gcs.Desktop.Map;
+
+/// <summary>A positioned mission item to draw: its number in the plan and whether it is selected in the editor.</summary>
+public readonly record struct MissionMapPoint(double Latitude, double Longitude, string Label, bool IsSelected);
 
 /// <summary>
 /// Map content for the selected vehicle: OpenStreetMap tiles, a breadcrumb trail of recent positions, the home
 /// position (first fix) and the vehicle marker rotated to its heading. Positions arrive in WGS84 degrees and are
-/// projected to Web Mercator, the projection web map tiles use.
+/// projected to Web Mercator, the projection web map tiles use. The planned mission is drawn on its own layer.
 /// </summary>
 public sealed class VehicleMap : IDisposable
 {
@@ -21,6 +27,7 @@ public sealed class VehicleMap : IDisposable
 
     private readonly MemoryLayer _trailLayer = new() { Name = "Trail", Style = null };
     private readonly MemoryLayer _homeLayer = new() { Name = "Home", Style = null };
+    private readonly MemoryLayer _missionLayer = new() { Name = "Mission", Style = null };
     private readonly MemoryLayer _vehicleLayer = new() { Name = "Vehicle", Style = null };
     private readonly LinkedList<MPoint> _trail = new();
     private MPoint? _home;
@@ -32,6 +39,7 @@ public sealed class VehicleMap : IDisposable
         Map.Layers.Add(OpenStreetMap.CreateTileLayer(UserAgent));
         Map.Layers.Add(_trailLayer);
         Map.Layers.Add(_homeLayer);
+        Map.Layers.Add(_missionLayer);
         Map.Layers.Add(_vehicleLayer);
     }
 
@@ -71,9 +79,45 @@ public sealed class VehicleMap : IDisposable
         }
     }
 
+    /// <summary>Redraws the planned route: a dashed line through the positioned items and a numbered marker on each.</summary>
+    public void ShowMission(IReadOnlyList<MissionMapPoint> points)
+    {
+        ArgumentNullException.ThrowIfNull(points);
+        var projected = points.Select(p => (Point: p, Mercator: SphericalMercator.FromLonLat(p.Longitude, p.Latitude))).ToList();
+        var features = new List<IFeature>();
+        if (projected.Count >= 2)
+        {
+            var line = new LineString([.. projected.Select(p => new Coordinate(p.Mercator.x, p.Mercator.y))]);
+            features.Add(new GeometryFeature(line) { Styles = { RouteStyle } });
+        }
+
+        features.AddRange(projected.Select(p => new PointFeature(p.Mercator.x, p.Mercator.y)
+        {
+            Styles = { p.Point.IsSelected ? SelectedWaypointStyle : WaypointStyle, WaypointLabel(p.Point.Label) },
+        }));
+        _missionLayer.Features = features;
+        _missionLayer.DataHasChanged();
+
+        if (!_centeredOnce && projected.Count > 0)
+        {
+            var (x, y) = projected[0].Mercator;
+            Map.Navigator.CenterOnAndZoomTo(new MPoint(x, y), Map.Navigator.Resolutions[FollowZoomLevel]);
+            _centeredOnce = true;
+        }
+    }
+
+    /// <summary>Converts a point on the map control (device-independent pixels) to WGS84 degrees.</summary>
+    public (double Latitude, double Longitude) ToLatLon(double screenX, double screenY)
+    {
+        var world = Map.Navigator.Viewport.ScreenToWorld(screenX, screenY);
+        var (lon, lat) = SphericalMercator.ToLonLat(world.X, world.Y);
+        return (lat, lon);
+    }
+
     public void Dispose()
     {
         Map.Dispose();
+        _missionLayer.Dispose();
         _trailLayer.Dispose();
         _homeLayer.Dispose();
         _vehicleLayer.Dispose();
@@ -99,6 +143,36 @@ public sealed class VehicleMap : IDisposable
         SymbolScale = 0.12,
         Fill = new Brush(Color.FromArgb(200, 0, 170, 255)),
         Outline = null,
+    };
+
+    private static readonly VectorStyle RouteStyle = new()
+    {
+        Line = new Pen(Color.FromArgb(230, 241, 196, 15), 3) { PenStyle = PenStyle.Dash },
+    };
+
+    private static readonly SymbolStyle WaypointStyle = new()
+    {
+        SymbolType = SymbolType.Ellipse,
+        SymbolScale = 0.5,
+        Fill = new Brush(Color.FromArgb(255, 241, 196, 15)),
+        Outline = new Pen(Color.FromArgb(255, 15, 23, 32), 2),
+    };
+
+    private static readonly SymbolStyle SelectedWaypointStyle = new()
+    {
+        SymbolType = SymbolType.Ellipse,
+        SymbolScale = 0.7,
+        Fill = new Brush(Color.FromArgb(255, 230, 126, 34)),
+        Outline = new Pen(Color.White, 3),
+    };
+
+    private static LabelStyle WaypointLabel(string text) => new()
+    {
+        Text = text,
+        ForeColor = Color.White,
+        BackColor = new Brush(Color.FromArgb(200, 15, 23, 32)),
+        Font = new Font { Size = 11, Bold = true },
+        Offset = new Offset(0, -20),
     };
 
     private static readonly SymbolStyle HomeStyle = new()

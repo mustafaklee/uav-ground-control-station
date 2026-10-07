@@ -43,3 +43,28 @@ public sealed class BatteryBrush : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 }
+
+/// <summary>
+/// Optional number ↔ text box. Empty text means "not set" (null). Both "39.93" and "39,93" are accepted, because operators
+/// on a Turkish keyboard type a comma; values are shown with a dot so coordinates look the same everywhere.
+/// </summary>
+public sealed class NullableDoubleConverter : IValueConverter
+{
+    public static readonly NullableDoubleConverter Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is double number ? number.ToString("0.#######", CultureInfo.InvariantCulture) : string.Empty;
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var text = (value as string)?.Trim();
+        if (string.IsNullOrEmpty(text))
+        {
+            return null;
+        }
+
+        return double.TryParse(text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
+            ? number
+            : Avalonia.Data.BindingOperations.DoNothing; // keep the last valid value while the operator is still typing
+    }
+}

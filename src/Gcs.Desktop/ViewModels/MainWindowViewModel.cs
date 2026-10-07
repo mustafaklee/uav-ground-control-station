@@ -22,6 +22,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
         _realtime = realtime;
         _ui = ui;
         ServerAddress = apiBaseUrl.ToString();
+        Planner = new MissionPlannerViewModel(api, () => SelectedVehicle);
 
         _realtime.TelemetryReceived += telemetry => _ui.Post(() => OnTelemetry(telemetry));
         _realtime.LinkStatusReceived += status => _ui.Post(() => OnLinkStatus(status));
@@ -35,6 +36,8 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public ObservableCollection<VehicleItemViewModel> Vehicles { get; } = [];
 
     public TelemetryViewModel Telemetry { get; } = new();
+
+    public MissionPlannerViewModel Planner { get; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BackendStatus))]
@@ -54,6 +57,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
     {
         await _realtime.StartAsync(cancellationToken);
         await RefreshAsync(cancellationToken);
+        try
+        {
+            await Planner.LoadMissionsAsync(cancellationToken);
+        }
+        catch (HttpRequestException)
+        {
+            // Reported by RefreshAsync already; the planner list fills on the next save or refresh.
+        }
+
+        if (Planner.Items.Count == 0)
+        {
+            Planner.NewMissionCommand.Execute(null);
+            Planner.IsAddingWaypoints = false;
+        }
     }
 
     [RelayCommand]
@@ -148,6 +165,10 @@ public sealed partial class MainWindowViewModel : ObservableObject
         {
             await action();
             ErrorMessage = null;
+        }
+        catch (ApiProblemException ex)
+        {
+            ErrorMessage = ex.Describe();
         }
         catch (HttpRequestException ex)
         {

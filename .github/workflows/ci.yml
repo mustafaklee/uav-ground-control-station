@@ -117,6 +117,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{"callsign":"SIM-01","mavlinkSystemId":1,"autopilot":"Px4","type":"Multirotor","connection":{"transport":"Udp","host":"0.0.0.0","port":14550}}' \
             | sed -E 's/.*"id":"([^"]+)".*/\1/')
+          echo "SIM_ID=$id" >> "$GITHUB_ENV"
           curl --fail --silent --show-error -X POST "http://127.0.0.1:8080/api/v1/vehicles/$id/connection" > /dev/null
           for i in $(seq 1 30); do
             if curl --silent "http://127.0.0.1:8080/api/v1/vehicles/$id/connection" | grep -q '"state":"Connected"'; then
@@ -126,6 +127,15 @@ jobs:
             sleep 1
           done
           echo "Vehicle did not connect within 30 s" && exit 1
+
+      # Phase 7: take control, send RTL over COMMAND_LONG, the simulator acknowledges it, the audit log records it.
+      - name: Command the simulated vehicle (lease, RTL, audit log)
+        run: |
+          api="http://127.0.0.1:8080/api/v1/vehicles/$SIM_ID"
+          curl --fail --silent --show-error -X POST "$api/command-lease" -H "X-Operator: ci"
+          curl --fail --silent --show-error -X POST "$api/commands" -H "X-Operator: ci" \
+            -H "Content-Type: application/json" -d '{"command":"ReturnToLaunch"}'
+          curl --fail --silent --show-error "$api/commands" | grep -q '"operator":"ci","command":"ReturnToLaunch","parameters":null,"outcome":"Accepted"'
 
       - name: Show logs on failure
         if: failure()

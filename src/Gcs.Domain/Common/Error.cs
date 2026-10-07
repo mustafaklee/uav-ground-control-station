@@ -20,6 +20,8 @@ public sealed record Error(string Code, string Message, ErrorType Type)
     public static Error Conflict(string code, string message) => new(code, message, ErrorType.Conflict);
 
     public static Error ConcurrencyConflict(string code, string message) => new(code, message, ErrorType.ConcurrencyConflict);
+
+    public static Error Timeout(string code, string message) => new(code, message, ErrorType.Timeout);
 }
 
 public enum ErrorType
@@ -35,4 +37,7 @@ public enum ErrorType
 
     /// <summary>The caller edited an outdated version; someone else changed the entity in between.</summary>
     ConcurrencyConflict,
+
+    /// <summary>Something outside the GCS (a vehicle) did not answer in time. The outcome is unknown, not "failed".</summary>
+    Timeout,
 }

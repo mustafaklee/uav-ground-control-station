@@ -1,4 +1,5 @@
 using FluentValidation;
+using Gcs.Application.Commands;
 using Gcs.Application.Missions;
 using Gcs.Application.Vehicles;
 using Gcs.Contracts.Vehicles;
@@ -39,6 +40,13 @@ public static class DependencyInjection
         services.AddScoped<ArchiveMissionHandler>();
         services.AddScoped<UploadMissionHandler>();
         services.AddScoped<DownloadVehicleMissionHandler>();
+
+        services.AddScoped<AcquireCommandLeaseHandler>();
+        services.AddScoped<ReleaseCommandLeaseHandler>();
+        services.AddScoped<GetCommandLeaseHandler>();
+        services.AddScoped<GetFlightModesHandler>();
+        services.AddScoped<SendVehicleCommandHandler>();
+        services.AddScoped<ListCommandAuditHandler>();
 
         return services;
     }

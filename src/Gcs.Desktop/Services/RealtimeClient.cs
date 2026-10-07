@@ -1,3 +1,4 @@
+using Gcs.Contracts.Commands;
 using Gcs.Contracts.Realtime;
 using Gcs.Contracts.Vehicles;
 using Microsoft.AspNetCore.SignalR.Client;
@@ -18,6 +19,9 @@ public interface IRealtimeClient : IAsyncDisposable
     event Action<TelemetryResponse>? TelemetryReceived;
 
     event Action<VehicleLinkResponse>? LinkStatusReceived;
+
+    /// <summary>Someone took or released control of a vehicle.</summary>
+    event Action<CommandLeaseResponse>? CommandLeaseReceived;
 
     event Action<BackendConnectionState>? ConnectionStateChanged;
 
@@ -54,6 +58,7 @@ public sealed class RealtimeClient : IRealtimeClient
 
         _telemetry.On<TelemetryResponse>(nameof(ITelemetryHubClient.TelemetryUpdated), t => TelemetryReceived?.Invoke(t));
         _vehicles.On<VehicleLinkResponse>(nameof(IVehiclesHubClient.LinkStatusChanged), s => LinkStatusReceived?.Invoke(s));
+        _vehicles.On<CommandLeaseResponse>(nameof(IVehiclesHubClient.CommandLeaseChanged), l => CommandLeaseReceived?.Invoke(l));
 
         _telemetry.Reconnecting += _ =>
         {
@@ -75,6 +80,8 @@ public sealed class RealtimeClient : IRealtimeClient
     public event Action<TelemetryResponse>? TelemetryReceived;
 
     public event Action<VehicleLinkResponse>? LinkStatusReceived;
+
+    public event Action<CommandLeaseResponse>? CommandLeaseReceived;
 
     public event Action<BackendConnectionState>? ConnectionStateChanged;
 

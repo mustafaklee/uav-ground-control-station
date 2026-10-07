@@ -142,7 +142,10 @@ Map and Avalonia version decision: [ADR-012](adr/ADR-012-desktop-map-and-avaloni
 | RabbitMQ down | API starts, readiness 503; vehicle changes still succeed and their events wait in the outbox until the broker is back | n/a |
 | Transient DB error | EF Core retries (configurable `Persistence:MaxRetryCount`) | n/a |
 | Two operators edit the same vehicle | The second save gets `412 Precondition Failed`; nothing is overwritten | n/a |
-| Same request sent twice | Register: second gets `409` (callsign in use). Retire: idempotent `204` | Idempotency keys for commands (Phase 7) |
+| Same request sent twice | Register: second gets `409` (callsign in use). Retire: idempotent `204`. The same command while one is in flight: `409 command.in_flight`, sent once | n/a |
+| Two operators command the same vehicle | Only the command lease holder may command; the other gets `409 command.lease_held` with the holder's name | Supervisor takeover with roles (Phase 8) |
+| Vehicle does not acknowledge a command | Resent up to 3 times (1.5 s each), then `504 command.timed_out`, audited as TimedOut (state unknown) | n/a |
+| API restarts during a command | The audit row stays `Pending` (it was written before sending); leases are dropped and operators take control again | Shared lease store for several instances (Phase 11/12) |
 | Vehicle link lost | Reconnecting after 3 s without heartbeat, bounded exponential backoff with jitter, Faulted after max attempts | n/a |
 | Vehicle never answers | Faulted after the connect timeout with a readable reason; operator retries | n/a |
 | PostgreSQL down during flight | Live telemetry unaffected; history queued in memory (bounded, drop oldest) and written when back | n/a |

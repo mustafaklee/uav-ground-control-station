@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Gcs.Desktop.ViewModels"
         xmlns:contracts="using:Gcs.Contracts.Missions"
+        xmlns:cmd="using:Gcs.Contracts.Commands"
         xmlns:mapsui="clr-namespace:Mapsui.UI.Avalonia;assembly=Mapsui.UI.Avalonia"
         x:Class="Gcs.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
@@ -109,6 +110,51 @@
                   </DataTemplate>
                 </ListBox.ItemTemplate>
               </ListBox>
+            </StackPanel>
+          </Border>
+
+          <!-- Vehicle control: lease, commands, last answer, audit -->
+          <Border Classes="panel">
+            <StackPanel DataContext="{Binding Commands}" x:DataType="vm:CommandPanelViewModel" Spacing="6">
+              <TextBlock Classes="header" Text="CONTROL" />
+              <TextBlock Text="{Binding ControlText}" Foreground="#C9D1D9" TextWrapping="Wrap" />
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Button Content="Take control" Command="{Binding TakeControlCommand}" Classes="accent" />
+                <Button Content="Release" Command="{Binding ReleaseControlCommand}" />
+              </StackPanel>
+              <UniformGrid Columns="3" Margin="0,4,0,0">
+                <Button Content="ARM" Command="{Binding ArmCommand}" HorizontalAlignment="Stretch" Margin="0,0,4,4" />
+                <Button Content="DISARM" Command="{Binding DisarmCommand}" HorizontalAlignment="Stretch" Margin="0,0,4,4" />
+                <Button Content="LAND" Command="{Binding LandCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
+                        Background="#B9770E" Foreground="White" />
+                <Button Content="TAKEOFF" Command="{Binding TakeoffCommand}" HorizontalAlignment="Stretch" Margin="0,0,4,0" />
+                <NumericUpDown Value="{Binding TakeoffAltitude}" Minimum="2" Maximum="500" Increment="5" FormatString="0 m"
+                               Margin="0,0,4,0" ToolTip.Tip="Takeoff altitude above home" />
+                <Button Content="RTL" Command="{Binding ReturnToLaunchCommand}" HorizontalAlignment="Stretch"
+                        Background="#B9770E" Foreground="White" />
+              </UniformGrid>
+              <Grid ColumnDefinitions="*,Auto">
+                <ComboBox ItemsSource="{Binding FlightModes}" SelectedItem="{Binding SelectedMode}" HorizontalAlignment="Stretch"
+                          PlaceholderText="Flight mode" />
+                <Button Grid.Column="1" Content="Set mode" Command="{Binding SetModeCommand}" Margin="6,0,0,0" />
+              </Grid>
+              <TextBlock Text="{Binding LastResult}" TextWrapping="Wrap" FontSize="12"
+                         Foreground="{Binding LastResultIsError, Converter={x:Static vm:ResultBrush.Instance}}"
+                         IsVisible="{Binding LastResult, Converter={x:Static ObjectConverters.IsNotNull}}" />
+              <TextBlock Classes="label" Text="Recent commands" Margin="0,4,0,0" />
+              <!-- Mode=OneWay: Run.Text binds two-way by default and would write "by pilot-1" back into the entry. -->
+              <ItemsControl ItemsSource="{Binding History}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="cmd:CommandAuditResponse">
+                    <TextBlock FontSize="11" Foreground="#8A9AAB" TextTrimming="CharacterEllipsis">
+                      <Run Text="{Binding RequestedAt, Mode=OneWay, StringFormat='{}{0:HH:mm:ss}'}" />
+                      <Run Text="{Binding Command, Mode=OneWay}" Foreground="#E6EDF3" />
+                      <Run Text="{Binding Outcome, Mode=OneWay}" Foreground="{Binding Outcome, Converter={x:Static vm:OutcomeBrush.Instance}}" />
+                      <Run Text="{Binding Operator, Mode=OneWay, StringFormat='by {0}'}" />
+                    </TextBlock>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
             </StackPanel>
           </Border>
 
@@ -221,8 +267,8 @@
                       <ComboBox.ItemTemplate>
                         <DataTemplate x:DataType="contracts:MissionSummaryResponse">
                           <TextBlock>
-                            <Run Text="{Binding Name}" />
-                            <Run Text="{Binding ItemCount, StringFormat=' · {0} items'}" Foreground="#8A9AAB" />
+                            <Run Text="{Binding Name, Mode=OneWay}" />
+                            <Run Text="{Binding ItemCount, Mode=OneWay, StringFormat=' · {0} items'}" Foreground="#8A9AAB" />
                           </TextBlock>
                         </DataTemplate>
                       </ComboBox.ItemTemplate>

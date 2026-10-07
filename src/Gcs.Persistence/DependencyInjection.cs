@@ -1,5 +1,6 @@
 using Gcs.Application;
 using Gcs.Application.Abstractions;
+using Gcs.Persistence.Commands;
 using Gcs.Persistence.Missions;
 using Gcs.Persistence.Outbox;
 using Gcs.Persistence.Telemetry;
@@ -43,6 +44,8 @@ public static partial class DependencyInjection
         services.AddScoped<IVehicleQueries, VehicleQueries>();
         services.AddScoped<IMissionRepository, MissionRepository>();
         services.AddScoped<IMissionQueries, MissionQueries>();
+        services.AddScoped<ICommandAuditLog, CommandAuditLog>();
+        services.AddScoped<ICommandAuditQueries, CommandAuditQueries>();
         services.AddScoped<IOutboxStore, OutboxStore>();
         services.AddScoped<IEventOutbox, EventOutbox>();
         services.AddScoped<ITelemetryHistoryStore, TelemetryHistoryStore>();

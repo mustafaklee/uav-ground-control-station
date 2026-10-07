@@ -57,6 +57,7 @@ try
     app.MapSystemEndpoints();
     app.MapVehicleEndpoints();
     app.MapMissionEndpoints();
+    app.MapCommandEndpoints();
     app.MapHub<TelemetryHub>(RealtimeRoutes.TelemetryHub);
     app.MapHub<VehiclesHub>(RealtimeRoutes.VehiclesHub);
 

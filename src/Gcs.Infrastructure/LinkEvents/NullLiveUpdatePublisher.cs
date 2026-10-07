@@ -1,4 +1,5 @@
 using Gcs.Application.Abstractions;
+using Gcs.Contracts.Commands;
 using Gcs.Contracts.Vehicles;
 
 namespace Gcs.Infrastructure.LinkEvents;
@@ -9,4 +10,6 @@ internal sealed class NullLiveUpdatePublisher : ILiveUpdatePublisher
     public Task PublishTelemetryAsync(TelemetryResponse telemetry, CancellationToken cancellationToken) => Task.CompletedTask;
 
     public Task PublishLinkStatusAsync(VehicleLinkResponse status, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task PublishCommandLeaseAsync(CommandLeaseResponse lease, CancellationToken cancellationToken) => Task.CompletedTask;
 }

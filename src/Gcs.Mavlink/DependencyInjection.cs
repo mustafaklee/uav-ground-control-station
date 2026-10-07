@@ -1,4 +1,5 @@
 using Gcs.Application.Abstractions;
+using Gcs.Mavlink.Commands;
 using Gcs.Mavlink.Connections;
 using Gcs.Mavlink.Transports;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +21,8 @@ public static class DependencyInjection
         services.AddSingleton<VehicleLinkManager>();
         services.AddSingleton<IVehicleLinkManager>(sp => sp.GetRequiredService<VehicleLinkManager>());
         services.AddSingleton<IVehicleMissionTransfer>(sp => sp.GetRequiredService<VehicleLinkManager>());
+        services.AddSingleton<IVehicleCommandSender>(sp => sp.GetRequiredService<VehicleLinkManager>());
+        services.AddSingleton<IFlightModeCatalog, FlightModeCatalog>();
         return services;
     }
 }

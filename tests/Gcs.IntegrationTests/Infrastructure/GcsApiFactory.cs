@@ -40,6 +40,10 @@ public sealed class GcsApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
         builder.UseSetting("Mavlink:ReconnectBaseDelayMilliseconds", "200");
         builder.UseSetting("Mavlink:WatchdogIntervalMilliseconds", "100");
 
+        // Commands time out quickly: 3 attempts x 0.3 s.
+        builder.UseSetting("Mavlink:CommandAckTimeoutMilliseconds", "300");
+        builder.UseSetting("Mavlink:CommandMaxRetries", "2");
+
         // Sample and flush history quickly so tests see stored samples within seconds.
         builder.UseSetting("Telemetry:HistorySampleIntervalMilliseconds", "200");
         builder.UseSetting("Telemetry:HistoryFlushIntervalMilliseconds", "300");

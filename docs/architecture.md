@@ -102,6 +102,12 @@ GET /api/v1/vehicles/{id}/telemetry → ITelemetryService → latest snapshot (m
 
 See [mavlink.md](mavlink.md) and [networking.md](networking.md).
 
+## Telemetry (Phase 4)
+
+Latest state in memory, throttled SignalR push, 1 Hz sampled history in PostgreSQL, link events via the outbox.
+Every hand-off between the vehicle link and slower consumers goes through a bounded queue or a timer, so nothing
+downstream can stall reception. Details: [telemetry.md](telemetry.md); Redis decision: [ADR-011](adr/ADR-011-redis-evaluation-phase-4.md).
+
 ## Cross-cutting concerns
 
 | Concern | Implementation |
@@ -125,6 +131,8 @@ See [mavlink.md](mavlink.md) and [networking.md](networking.md).
 | Same request sent twice | Register: second gets `409` (callsign in use). Retire: idempotent `204` | Idempotency keys for commands (Phase 7) |
 | Vehicle link lost | Reconnecting after 3 s without heartbeat, bounded exponential backoff with jitter, Faulted after max attempts | n/a |
 | Vehicle never answers | Faulted after the connect timeout with a readable reason; operator retries | n/a |
+| PostgreSQL down during flight | Live telemetry unaffected; history queued in memory (bounded, drop oldest) and written when back | n/a |
+| Slow operator client | Its pushes lag; other clients and MAVLink reception unaffected | n/a |
 
 ## Related decisions
 

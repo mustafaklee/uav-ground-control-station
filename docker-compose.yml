@@ -56,6 +56,17 @@ services:
       <<: *healthcheck-defaults
       test: ["CMD", "redis-cli", "ping"]
 
+  # Traces, metrics and logs from the API over OpenTelemetry (OTLP). UI: http://localhost:18888
+  # Anonymous access is acceptable only because the port is bound to 127.0.0.1 (see docs/observability.md).
+  otel-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.6
+    restart: unless-stopped
+    environment:
+      ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+    ports:
+      - "127.0.0.1:18888:18888"  # dashboard UI
+      - "127.0.0.1:4317:18889"   # OTLP/gRPC, for an API started with dotnet run on the host
+
   # Applies database migrations once, then exits. The API starts only after it finished successfully.
   gcs-migrator:
     build:
@@ -86,6 +97,7 @@ services:
       # Creates the first administrator while no user exists; ignored afterwards.
       Security__BootstrapAdministrator__Username: ${GCS_ADMIN_USERNAME:-admin}
       Security__BootstrapAdministrator__Password: ${GCS_ADMIN_PASSWORD:-}
+      Observability__OtlpEndpoint: http://otel-dashboard:18889
     ports:
       - "127.0.0.1:8080:8080"
       # MAVLink from vehicles/SITL on the host. Register a vehicle with transport Udp, host 0.0.0.0, port 14550.
@@ -95,6 +107,8 @@ services:
         condition: service_completed_successfully
       rabbitmq:
         condition: service_healthy
+      otel-dashboard:
+        condition: service_started
     healthcheck:
       <<: *healthcheck-defaults
       # The aspnet base image has no curl; bash's /dev/tcp is enough for a plain HTTP probe.

@@ -135,6 +135,7 @@ jobs:
       - name: Connect to the simulated vehicle over MAVLink/UDP
         run: |
           id=$(curl --fail --silent --show-error -X POST http://127.0.0.1:8080/api/v1/vehicles \
+            -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
             -d '{"callsign":"SIM-01","mavlinkSystemId":1,"autopilot":"Px4","type":"Multirotor","connection":{"transport":"Udp","host":"0.0.0.0","port":14550}}' \
             | sed -E 's/.*"id":"([^"]+)".*/\1/')

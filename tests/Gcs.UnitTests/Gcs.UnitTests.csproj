@@ -8,6 +8,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Gcs.Domain/Gcs.Domain.csproj" />
     <ProjectReference Include="../../src/Gcs.Api/Gcs.Api.csproj" />
+    <ProjectReference Include="../../src/Gcs.Desktop/Gcs.Desktop.csproj" />
   </ItemGroup>
 
   <ItemGroup>

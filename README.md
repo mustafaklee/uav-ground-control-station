@@ -6,7 +6,11 @@ A modular, testable ground control station (GCS) for managing multiple UAVs over
 ASP.NET Core, PostgreSQL, RabbitMQ, SignalR and Avalonia UI. It is engineered like a defence-industry product:
 reliability, safety, security and observability come before features.
 
-> **Status: Phase 5, desktop GCS.** The Avalonia operator client shows the fleet, a live map with the vehicle's heading
+> **Status: Phase 6, mission planner.** Operators plan missions on the map (takeoff, waypoints, loiter, RTL, land), the
+> backend stores and validates them, and the MAVLink mission protocol uploads them to a vehicle and reads them back.
+> Vehicle links are restored automatically after an API restart.
+>
+> Phase 5, desktop GCS: The Avalonia operator client shows the fleet, a live map with the vehicle's heading
 > and track, telemetry and battery panels and a status bar, fed by REST and SignalR.
 >
 > Phase 4, telemetry: Live telemetry is pushed to clients over SignalR (throttled to 5 Hz per vehicle),
@@ -17,7 +21,9 @@ reliability, safety, security and observability come before features.
 > attitude, speed, battery, GPS, arm state, flight mode). Vehicles are managed through a versioned REST API backed by
 > PostgreSQL. SignalR push and the desktop UI arrive in the phases listed in the [roadmap](#roadmap).
 
-![GCS desktop client: live map, vehicle list, telemetry, battery and status bar](docs/images/gcs-desktop-phase5.png)
+![GCS desktop client, Mission tab: planned route on the map, item list, flyability check and upload](docs/images/gcs-desktop-phase6-mission.png)
+
+The Flight tab with live telemetry: [docs/images/gcs-desktop-phase5.png](docs/images/gcs-desktop-phase5.png).
 
 ## Project overview
 
@@ -60,7 +66,9 @@ Avalonia GCS ──REST/SignalR──► Gcs.Api ──► Application ──►
 | Telemetry history: 1 Hz sampling, batched PostgreSQL writes, retention | ✅ Phase 4 |
 | Link events (connected, lost, faulted, disconnected) to RabbitMQ via outbox | ✅ Phase 4 |
 | Avalonia operator UI: live map (heading, track, home), fleet list, telemetry, battery, status bar | ✅ Phase 5 |
-| Mission planner | Planned (Phase 6) |
+| Mission planner: map editing, server-side validation, drafts, ETag concurrency | ✅ Phase 6 |
+| MAVLink mission upload/download with retries, simulator support | ✅ Phase 6 |
+| Vehicle links restored after an API restart | ✅ Phase 6 |
 | Command system with authorization | Planned (Phase 7) |
 | Authentication, roles, audit log, rate limiting | Planned (Phase 8) |
 | OpenTelemetry metrics and tracing | Planned (Phase 9) |
@@ -118,7 +126,8 @@ dotnet run --project src/Gcs.Desktop -- --api http://10.0.0.5:8080/
 ```
 
 The client keeps retrying if the backend is not up yet. Select a vehicle to see it on the map; Connect/Disconnect
-start and stop its MAVLink link. Map data © OpenStreetMap contributors.
+start and stop its MAVLink link. The Mission tab plans, saves and uploads missions to the selected vehicle
+([docs/missions.md](docs/missions.md)). Map data © OpenStreetMap contributors.
 
 ### Docker setup
 
@@ -209,6 +218,9 @@ In Development the OpenAPI document is served at `/openapi/v1.json`.
 | `DELETE /api/v1/vehicles/{id}/connection` | Close the link → `204` |
 | `GET /api/v1/vehicles/{id}/telemetry` | Latest live telemetry snapshot (`404 telemetry.not_available` before any) |
 | `GET /api/v1/vehicles/{id}/telemetry/history?from=&to=&limit=` | Stored samples, oldest first (default: last 10 minutes) |
+| `GET/POST /api/v1/missions`, `GET/PUT/DELETE /api/v1/missions/{id}` | Mission CRUD (PUT needs `If-Match`; DELETE archives) |
+| `POST /api/v1/missions/{id}/upload` | Upload a flyable mission to a connected vehicle (`{ "vehicleId": … }`) |
+| `GET /api/v1/vehicles/{id}/mission` | Read the mission stored on the vehicle ([docs/missions.md](docs/missions.md)) |
 | SignalR `/hubs/telemetry` | `SubscribeVehicle(id)` → `TelemetryUpdated` at up to 5 Hz ([docs/telemetry.md](docs/telemetry.md)) |
 | SignalR `/hubs/vehicles` | `LinkStatusChanged` for every vehicle |
 
@@ -240,7 +252,7 @@ rate limiting, secure headers, HTTPS and audit logging arrive in Phase 8.
 | 3 | MAVLink abstraction, UDP transport, simulator, heartbeat, connection lifecycle ✅ |
 | 4 | Telemetry processing, latest state, SignalR ✅ |
 | 5 | Avalonia GCS ✅ |
-| 6 | Mission planner |
+| 6 | Mission planner ✅ |
 | 7 | Command system |
 | 8 | Security |
 | 9 | Observability |

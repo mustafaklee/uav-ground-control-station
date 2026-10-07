@@ -17,3 +17,4 @@ New ADRs get the next number; superseded ADRs are kept and marked as superseded.
 | [ADR-010](ADR-010-own-mavlink-codec.md) | Own MAVLink v2 codec, verified against pymavlink |
 | [ADR-011](ADR-011-redis-evaluation-phase-4.md) | Redis evaluated in Phase 4 and not adopted yet; triggers for adopting it |
 | [ADR-012](ADR-012-desktop-map-and-avalonia-version.md) | Mapsui for the operator map, Avalonia 11.3, OSM tiles now, offline tiles before field use |
+| [ADR-013](ADR-013-mission-storage-and-validation.md) | Mission items as JSONB in the mission row; field rules reject, flyability rules gate upload |

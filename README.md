@@ -6,7 +6,12 @@ A modular, testable ground control station (GCS) for managing multiple UAVs over
 ASP.NET Core, PostgreSQL, RabbitMQ, SignalR and Avalonia UI. It is engineered like a defence-industry product:
 reliability, safety, security and observability come before features.
 
-> **Status: Phase 6, mission planner.** Operators plan missions on the map (takeoff, waypoints, loiter, RTL, land), the
+> **Status: Phase 7, command system.** Operators take control of a vehicle (one operator per vehicle, expiring command
+> lease) and send ARM, DISARM, TAKEOFF, LAND, RTL and SET_MODE. Each command waits for the vehicle's COMMAND_ACK with a
+> timeout and bounded retries, a duplicate in flight is refused, critical commands need confirmation, and every
+> attempt is written to an append-only audit log in PostgreSQL. See [docs/commands.md](docs/commands.md).
+>
+> Phase 6, mission planner: Operators plan missions on the map (takeoff, waypoints, loiter, RTL, land), the
 > backend stores and validates them, and the MAVLink mission protocol uploads them to a vehicle and reads them back.
 > Vehicle links are restored automatically after an API restart.
 >
@@ -21,9 +26,10 @@ reliability, safety, security and observability come before features.
 > attitude, speed, battery, GPS, arm state, flight mode). Vehicles are managed through a versioned REST API backed by
 > PostgreSQL. SignalR push and the desktop UI arrive in the phases listed in the [roadmap](#roadmap).
 
-![GCS desktop client, Mission tab: planned route on the map, item list, flyability check and upload](docs/images/gcs-desktop-phase6-mission.png)
+![GCS desktop client, Flight tab: control panel with command lease, command buttons, last answer and audited command history](docs/images/gcs-desktop-phase7-control.png)
 
-The Flight tab with live telemetry: [docs/images/gcs-desktop-phase5.png](docs/images/gcs-desktop-phase5.png).
+The Mission tab: [docs/images/gcs-desktop-phase6-mission.png](docs/images/gcs-desktop-phase6-mission.png).
+Live telemetry before the control panel existed: [docs/images/gcs-desktop-phase5.png](docs/images/gcs-desktop-phase5.png).
 
 ## Project overview
 
@@ -69,7 +75,10 @@ Avalonia GCS ──REST/SignalR──► Gcs.Api ──► Application ──►
 | Mission planner: map editing, server-side validation, drafts, ETag concurrency | ✅ Phase 6 |
 | MAVLink mission upload/download with retries, simulator support | ✅ Phase 6 |
 | Vehicle links restored after an API restart | ✅ Phase 6 |
-| Command system with authorization | Planned (Phase 7) |
+| Commands (ARM, DISARM, TAKEOFF, LAND, RTL, SET_MODE) over COMMAND_LONG with ACK timeout and retry | ✅ Phase 7 |
+| Command lease (one operator per vehicle), duplicate-in-flight refusal, confirmation of critical commands | ✅ Phase 7 |
+| Append-only command audit log in PostgreSQL, desktop control panel | ✅ Phase 7 |
+| Role-based authorization of critical commands | Planned (Phase 8) |
 | Authentication, roles, audit log, rate limiting | Planned (Phase 8) |
 | OpenTelemetry metrics and tracing | Planned (Phase 9) |
 | PX4 SITL integration | Planned (Phase 10) |

@@ -46,8 +46,8 @@ The UI and API never see sockets, frames or MAVLink enums. They see `ConnectionS
 | ATTITUDE | 30 | vehicle → GCS | roll, pitch, yaw |
 | GLOBAL_POSITION_INT | 33 | vehicle → GCS | lat/lon, altitude MSL and relative |
 | VFR_HUD | 74 | vehicle → GCS | ground/air speed, climb, heading |
-| COMMAND_LONG | 76 | GCS → vehicle | commands (Phase 7) |
-| COMMAND_ACK | 77 | vehicle → GCS | command results (Phase 7) |
+| COMMAND_LONG | 76 | GCS → vehicle | commands: ARM, DISARM, TAKEOFF, LAND, RTL, SET_MODE (see [commands.md](commands.md)) |
+| COMMAND_ACK | 77 | vehicle → GCS | command results; resend with `confirmation` + 1 on timeout |
 
 Every message is covered by a golden test: `scripts/generate-mavlink-golden.py` produces reference frames with
 pymavlink, and the codec must encode to exactly those bytes and decode them back.

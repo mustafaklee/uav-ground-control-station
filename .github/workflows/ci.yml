@@ -3,8 +3,8 @@
 on:
   push:
     branches: [main]
+  # Every pull request, including ones stacked on another feature branch.
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:

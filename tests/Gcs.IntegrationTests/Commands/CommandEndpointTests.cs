@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Net.Sockets;
 using System.Text.Json;
+using Gcs.Contracts.Auth;
 using Gcs.Contracts.Commands;
 using Gcs.Contracts.Common;
 using Gcs.Contracts.Vehicles;
@@ -25,7 +26,8 @@ public sealed class CommandEndpointTests(GcsApiFactory factory)
     private const string Vehicles = "/api/v1/vehicles";
     private const string Pilot = "pilot-1";
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
-    private readonly HttpClient _client = factory.CreateClient();
+    private readonly HttpClient _client = factory.CreateAdminClient();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, HttpClient> _operators = new();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -113,7 +115,7 @@ public sealed class CommandEndpointTests(GcsApiFactory factory)
         var ali = await AcquireAsync(vehicle.Id, "ali");
         var ayseTakes = await AcquireAsync(vehicle.Id, "ayse");
         var ayseCommands = await SendAsync(vehicle.Id, "ayse", new SendCommandRequest("ReturnToLaunch"));
-        var ayseReleases = await _client.SendAsync(Request(HttpMethod.Delete, $"{Vehicles}/{vehicle.Id}/command-lease", "ayse"), Ct);
+        var ayseReleases = await As("ayse").DeleteAsync(new Uri($"{Vehicles}/{vehicle.Id}/command-lease", UriKind.Relative), Ct);
 
         ali.StatusCode.ShouldBe(HttpStatusCode.OK);
         (await ali.Content.ReadFromJsonAsync<CommandLeaseResponse>(Ct))!.Holder.ShouldBe("ali");
@@ -122,7 +124,7 @@ public sealed class CommandEndpointTests(GcsApiFactory factory)
         (await ReadCodeAsync(ayseCommands)).ShouldBe("command.lease_held");
         (await ReadCodeAsync(ayseReleases)).ShouldBe("command.lease_held");
 
-        (await _client.SendAsync(Request(HttpMethod.Delete, $"{Vehicles}/{vehicle.Id}/command-lease", "ali"), Ct)).StatusCode
+        (await As("ali").DeleteAsync(new Uri($"{Vehicles}/{vehicle.Id}/command-lease", UriKind.Relative), Ct)).StatusCode
             .ShouldBe(HttpStatusCode.NoContent);
         (await AcquireAsync(vehicle.Id, "ayse")).StatusCode.ShouldBe(HttpStatusCode.OK);
         (await _client.GetFromJsonAsync<CommandLeaseResponse>($"{Vehicles}/{vehicle.Id}/command-lease", Ct))!.Holder.ShouldBe("ayse");
@@ -153,18 +155,19 @@ public sealed class CommandEndpointTests(GcsApiFactory factory)
         var vehicle = await RegisterAsync();
         await AcquireAsync(vehicle.Id, Pilot);
 
-        var noOperator = await _client.PostAsJsonAsync($"{Vehicles}/{vehicle.Id}/commands", new SendCommandRequest("Land"), Ct);
+        using var anonymous = factory.CreateClient();
+        var notSignedIn = await anonymous.PostAsJsonAsync($"{Vehicles}/{vehicle.Id}/commands", new SendCommandRequest("Land"), Ct);
         var unconfirmed = await SendAsync(vehicle.Id, Pilot, new SendCommandRequest("Arm"));
         var badAltitude = await SendAsync(vehicle.Id, Pilot, new SendCommandRequest("Takeoff", Altitude: 0, Confirm: true));
         var badMode = await SendAsync(vehicle.Id, Pilot, new SendCommandRequest("SetMode", Mode: "WARP", Confirm: true));
         var unknown = await SendAsync(vehicle.Id, Pilot, new SendCommandRequest("Fly"));
 
-        (await ReadCodeAsync(noOperator)).ShouldBe("command.operator_required");
+        notSignedIn.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
         (await ReadCodeAsync(unconfirmed)).ShouldBe("command.confirmation_required");
         (await ReadCodeAsync(badAltitude)).ShouldBe("command.takeoff.altitude");
         (await ReadCodeAsync(badMode)).ShouldBe("command.mode.unknown");
         (await ReadCodeAsync(unknown)).ShouldBe("command.unknown");
-        new[] { noOperator, unconfirmed, badAltitude, badMode, unknown }.ShouldAllBe(r => r.StatusCode == HttpStatusCode.BadRequest);
+        new[] { unconfirmed, badAltitude, badMode, unknown }.ShouldAllBe(r => r.StatusCode == HttpStatusCode.BadRequest);
         (await ListAuditAsync(vehicle.Id)).Items.ShouldBeEmpty();
 
         var modes = await _client.GetFromJsonAsync<FlightModesResponse>($"{Vehicles}/{vehicle.Id}/flight-modes", Ct);
@@ -214,15 +217,14 @@ public sealed class CommandEndpointTests(GcsApiFactory factory)
         return vehicle;
     }
 
-    private Task<HttpResponseMessage> AcquireAsync(Guid vehicleId, string operatorName) =>
-        _client.SendAsync(Request(HttpMethod.Post, $"{Vehicles}/{vehicleId}/command-lease", operatorName), Ct);
+    /// <summary>A client signed in as an operator with this name: the name in leases and audit rows comes from the token.</summary>
+    private HttpClient As(string operatorName) => _operators.GetOrAdd(operatorName, name => factory.Users.ClientFor(name, Roles.Operator));
 
-    private Task<HttpResponseMessage> SendAsync(Guid vehicleId, string operatorName, SendCommandRequest command)
-    {
-        var request = Request(HttpMethod.Post, $"{Vehicles}/{vehicleId}/commands", operatorName);
-        request.Content = JsonContent.Create(command);
-        return _client.SendAsync(request, Ct);
-    }
+    private Task<HttpResponseMessage> AcquireAsync(Guid vehicleId, string operatorName) =>
+        As(operatorName).PostAsync(new Uri($"{Vehicles}/{vehicleId}/command-lease", UriKind.Relative), null, Ct);
+
+    private Task<HttpResponseMessage> SendAsync(Guid vehicleId, string operatorName, SendCommandRequest command) =>
+        As(operatorName).PostAsJsonAsync($"{Vehicles}/{vehicleId}/commands", command, Ct);
 
     private async Task<PagedResponse<CommandAuditResponse>> ListAuditAsync(Guid vehicleId) =>
         (await _client.GetFromJsonAsync<PagedResponse<CommandAuditResponse>>($"{Vehicles}/{vehicleId}/commands", Ct))!;
@@ -237,13 +239,6 @@ public sealed class CommandEndpointTests(GcsApiFactory factory)
                     : new TelemetryResponse(vehicleId, DateTimeOffset.MinValue, null, null, null, null, null, null);
             },
             condition, Timeout, because);
-
-    private static HttpRequestMessage Request(HttpMethod method, string path, string operatorName)
-    {
-        var request = new HttpRequestMessage(method, path);
-        request.Headers.Add(CommandHeaders.Operator, operatorName);
-        return request;
-    }
 
     private static async Task<string?> ReadCodeAsync(HttpResponseMessage response)
     {

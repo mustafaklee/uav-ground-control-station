@@ -14,7 +14,7 @@ public sealed class MissionEndpointTests(GcsApiFactory factory)
 {
     private const string Missions = "/api/v1/missions";
     private const string Vehicles = "/api/v1/vehicles";
-    private readonly HttpClient _client = factory.CreateClient();
+    private readonly HttpClient _client = factory.CreateAdminClient();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 

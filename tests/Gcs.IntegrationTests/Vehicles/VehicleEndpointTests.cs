@@ -13,7 +13,7 @@ namespace Gcs.IntegrationTests.Vehicles;
 public sealed class VehicleEndpointTests(GcsApiFactory factory)
 {
     private const string BasePath = "/api/v1/vehicles";
-    private readonly HttpClient _client = factory.CreateClient();
+    private readonly HttpClient _client = factory.CreateAdminClient();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Gcs.Application.Abstractions;
+using Gcs.Domain.Commands;
 using Gcs.Domain.Common;
 using Gcs.Domain.Missions;
 using Gcs.Domain.Vehicles;
@@ -22,7 +23,7 @@ internal sealed class VehicleLinkManager(
     IVehicleLinkEventSink events,
     IOptions<MavlinkConnectionOptions> options,
     TimeProvider time,
-    ILoggerFactory loggers) : IVehicleLinkManager, IVehicleMissionTransfer, IAsyncDisposable
+    ILoggerFactory loggers) : IVehicleLinkManager, IVehicleMissionTransfer, IVehicleCommandSender, IAsyncDisposable
 {
     private static readonly Error AlreadyConnected = Error.Conflict(
         "vehicle.link.already_active",
@@ -106,6 +107,11 @@ internal sealed class VehicleLinkManager(
             ? Result.Success(MissionItemMapper.FromMavlink(download.Value, connection.Target.Autopilot))
             : download.Error;
     }
+
+    public Task<CommandDelivery> SendAsync(VehicleId vehicleId, VehicleCommand command, CancellationToken cancellationToken) =>
+        _connections.TryGetValue(vehicleId, out var connection)
+            ? connection.SendCommandAsync(command, cancellationToken)
+            : Task.FromResult(new CommandDelivery(CommandDeliveryStatus.NotConnected, 0, null));
 
     public async ValueTask DisposeAsync()
     {

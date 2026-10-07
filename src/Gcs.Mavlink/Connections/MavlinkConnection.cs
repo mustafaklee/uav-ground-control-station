@@ -1,7 +1,10 @@
+using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Gcs.Application.Abstractions;
+using Gcs.Domain.Commands;
 using Gcs.Domain.Common;
 using Gcs.Domain.Vehicles.Connections;
+using Gcs.Mavlink.Commands;
 using Gcs.Mavlink.Missions;
 using Gcs.Mavlink.Protocol;
 using Gcs.Mavlink.Protocol.Messages;
@@ -41,12 +44,17 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
     private readonly CancellationTokenSource _stop = new();
     private readonly SemaphoreSlim _missionGate = new(1, 1);
 
+    // One inbox per command that is waiting for its COMMAND_ACK. The key is MAV_CMD because that is all an ACK carries:
+    // two identical commands in flight at once could not be told apart, so a second one is refused (see SendCommandAsync).
+    private readonly ConcurrentDictionary<MavCmd, Channel<CommandAckMessage>> _pendingCommands = new();
+
     private Task? _run;
     private volatile IMavlinkTransport? _activeTransport;
     private volatile Channel<IMavlinkMessage>? _missionInbox;
     private DateTimeOffset _sessionStartedAt;
     private int _sequence;
     private int _disposed;
+    private double _homeAltitudeMsl = double.NaN;
 
     public MavlinkConnection(
         VehicleLinkTarget target,
@@ -296,6 +304,23 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
             return;
         }
 
+        if (message is CommandAckMessage ack)
+        {
+            // An ACK nobody waits for (late answer after a timeout, or for another GCS) is dropped.
+            if (_pendingCommands.TryGetValue(ack.Command, out var waiting))
+            {
+                waiting.Writer.TryWrite(ack);
+            }
+
+            return;
+        }
+
+        if (message is GlobalPositionIntMessage position)
+        {
+            // MSL altitude minus altitude above home = home altitude; PX4 takeoff commands need it.
+            Volatile.Write(ref _homeAltitudeMsl, (position.AltitudeMslMillimetres - position.RelativeAltitudeMillimetres) / 1000.0);
+        }
+
         var now = _time.GetUtcNow();
         if (message is HeartbeatMessage { Type: not MavType.Gcs })
         {
@@ -373,6 +398,58 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
     /// One transfer at a time per vehicle: two operators uploading at once would interleave MISSION_ITEMs and
     /// corrupt the vehicle's mission, so the second one is refused instead of queued.
     /// </summary>
+    /// <summary>
+    /// Sends one command and waits for the vehicle's answer (with retries, see <see cref="CommandExchange"/>).
+    /// Refused without sending when the link is down, or when the same MAV_CMD is still waiting for its ACK: an operator
+    /// double-clicking ARM must produce one ARM, and the second click is told so instead of being queued.
+    /// Different commands may overlap (an RTL is not blocked by a mode change still in flight).
+    /// </summary>
+    public async Task<CommandDelivery> SendCommandAsync(VehicleCommand command, CancellationToken cancellationToken)
+    {
+        if (State != ConnectionState.Connected || _activeTransport is null)
+        {
+            return new CommandDelivery(CommandDeliveryStatus.NotConnected, 0, null);
+        }
+
+        var home = Volatile.Read(ref _homeAltitudeMsl);
+        var message = CommandMapper.ToCommandLong(
+            command, _target.Autopilot, _target.Type, _target.SystemId.Value, double.IsNaN(home) ? null : home, out var problem);
+        if (message is null)
+        {
+            return new CommandDelivery(CommandDeliveryStatus.Unsupported, 0, problem);
+        }
+
+        var inbox = Channel.CreateUnbounded<CommandAckMessage>();
+        if (!_pendingCommands.TryAdd(message.Command, inbox))
+        {
+            return new CommandDelivery(CommandDeliveryStatus.AlreadyInFlight, 0, null);
+        }
+
+        try
+        {
+            var exchange = new CommandExchange(SendAsync, inbox.Reader, CommandOptions(), _time);
+            var delivery = await exchange.RunAsync(message, cancellationToken);
+            LogCommand(_target.VehicleId.Value, command.Type, delivery.Status, delivery.Attempts);
+            return delivery;
+        }
+        catch (Exception ex) when (ex is IOException or System.Net.Sockets.SocketException or ObjectDisposedException or InvalidOperationException)
+        {
+            // The transport went away while sending (link lost mid-command).
+            return new CommandDelivery(CommandDeliveryStatus.NotConnected, 0, $"The link dropped while sending: {ex.Message}");
+        }
+        finally
+        {
+            _pendingCommands.TryRemove(message.Command, out _);
+        }
+    }
+
+    private CommandExchangeOptions CommandOptions() => new()
+    {
+        AckTimeout = TimeSpan.FromMilliseconds(_options.CommandAckTimeoutMilliseconds),
+        MaxRetries = _options.CommandMaxRetries,
+        InProgressTimeout = TimeSpan.FromMilliseconds(_options.CommandInProgressTimeoutMilliseconds),
+    };
+
     private async Task<Result> RunMissionTransferAsync(Func<MissionTransfer, Task<Result>> run, CancellationToken cancellationToken)
     {
         if (State != ConnectionState.Connected || _activeTransport is null)
@@ -479,6 +556,9 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Vehicle {VehicleId}: sending heartbeat failed")]
     private partial void LogSendFailed(Exception exception, Guid vehicleId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Vehicle {VehicleId}: command {Command} -> {Status} after {Attempts} attempt(s)")]
+    private partial void LogCommand(Guid vehicleId, VehicleCommandType command, CommandDeliveryStatus status, int attempts);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Vehicle {VehicleId}: disconnected")]
     private partial void LogDisconnected(Guid vehicleId);

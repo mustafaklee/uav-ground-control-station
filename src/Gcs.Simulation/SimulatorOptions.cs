@@ -27,4 +27,7 @@ public sealed class SimulatorOptions
 
     [Range(1, 100)]
     public double SpeedMetresPerSecond { get; init; } = 12;
+
+    /// <summary>True: start armed and circling. False: start disarmed on the ground, to try ARM and TAKEOFF.</summary>
+    public bool StartAirborne { get; init; } = true;
 }

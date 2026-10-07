@@ -46,4 +46,16 @@ public sealed class MavlinkConnectionOptions
     /// <summary>How often the watchdog checks heartbeat age.</summary>
     [Range(50, 5000)]
     public int WatchdogIntervalMilliseconds { get; init; } = 250;
+
+    /// <summary>How long a command waits for COMMAND_ACK before it is sent again.</summary>
+    [Range(50, 30_000)]
+    public int CommandAckTimeoutMilliseconds { get; init; } = 1500;
+
+    /// <summary>Resends of an unanswered command. With the defaults a silent vehicle times out after 4 × 1.5 s = 6 s.</summary>
+    [Range(0, 10)]
+    public int CommandMaxRetries { get; init; } = 3;
+
+    /// <summary>How long to wait for the final answer after the vehicle reported IN_PROGRESS.</summary>
+    [Range(100, 120_000)]
+    public int CommandInProgressTimeoutMilliseconds { get; init; } = 10_000;
 }

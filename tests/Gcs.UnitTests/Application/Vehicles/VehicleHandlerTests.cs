@@ -13,6 +13,7 @@ public sealed class VehicleHandlerTests
     private readonly FakeVehicleRepository _repository = new();
     private readonly FakeUnitOfWork _unitOfWork = new();
     private readonly FixedClock _clock = new(Now);
+    private readonly FakeLinkManager _links = new();
 
     [Fact]
     public async Task Register_stores_the_vehicle_and_returns_it()
@@ -148,6 +149,16 @@ public sealed class VehicleHandlerTests
     }
 
     [Fact]
+    public async Task Retiring_a_vehicle_closes_its_live_link()
+    {
+        var created = await Register(ValidRegistration("UAV-01", systemId: 1));
+
+        await Retire(created.Value.Id, expectedVersion: null);
+
+        _links.Disconnected.ShouldHaveSingleItem().Value.ShouldBe(created.Value.Id);
+    }
+
+    [Fact]
     public async Task Retire_of_an_unknown_vehicle_returns_not_found()
     {
         var result = await Retire(Guid.NewGuid(), expectedVersion: null);
@@ -178,7 +189,7 @@ public sealed class VehicleHandlerTests
             .HandleAsync(id, expectedVersion, request, CancellationToken.None);
 
     private Task<Result> Retire(Guid id, int? expectedVersion) =>
-        new RetireVehicleHandler(_repository, _unitOfWork, _clock).HandleAsync(id, expectedVersion, CancellationToken.None);
+        new RetireVehicleHandler(_repository, _unitOfWork, _links, _clock).HandleAsync(id, expectedVersion, CancellationToken.None);
 
     private static RegisterVehicleRequest ValidRegistration(string callsign, int systemId) =>
         new(callsign, systemId, "Px4", "Multirotor", new ConnectionSettingsDto("Udp", Host: "127.0.0.1", Port: 14550));

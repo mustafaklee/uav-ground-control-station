@@ -1,15 +1,5 @@
 namespace Gcs.Contracts.Commands;
 
-/// <summary>HTTP headers of the command API.</summary>
-public static class CommandHeaders
-{
-    /// <summary>
-    /// Who is acting (e.g. <c>operator01</c>). Required on every lease and command request until sign-in exists (Phase 8);
-    /// then the authenticated user replaces it.
-    /// </summary>
-    public const string Operator = "X-Operator";
-}
-
 /// <summary>
 /// Body of <c>POST /api/v1/vehicles/{id}/commands</c>.
 /// <c>Command</c>: Arm, Disarm, Takeoff, Land, ReturnToLaunch, SetMode. <c>Altitude</c> (m above home) only for Takeoff,

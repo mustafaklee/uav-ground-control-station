@@ -96,19 +96,40 @@ jobs:
           cache-from: type=gha,scope=simulator
           cache-to: type=gha,mode=max,scope=simulator
 
+      # Fresh secrets for every run; they live only in this job's environment.
+      - name: Generate stack secrets
+        run: |
+          echo "JWT_SIGNING_KEY=$(openssl rand -base64 48)" >> "$GITHUB_ENV"
+          pw="ci-$(openssl rand -hex 16)"
+          echo "::add-mask::$pw"
+          echo "GCS_ADMIN_PASSWORD=$pw" >> "$GITHUB_ENV"
+
       - name: Start stack and wait until healthy
         run: docker compose up --detach --wait --wait-timeout 180 --no-build
 
       - name: Check readiness endpoint
         run: curl --fail --silent --show-error http://127.0.0.1:8080/health/ready
 
+      # Phase 8: everything but health needs a token. Sign in as the bootstrap administrator.
+      - name: Sign in as the bootstrap administrator
+        run: |
+          curl --silent --show-error -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/api/v1/vehicles | grep -q 401
+          for i in $(seq 1 20); do
+            token=$(curl --silent -X POST http://127.0.0.1:8080/api/v1/auth/login -H "Content-Type: application/json" \
+              -d "{\"username\":\"admin\",\"password\":\"$GCS_ADMIN_PASSWORD\"}" | sed -nE 's/.*"accessToken":"([^"]+)".*/\1/p')
+            if [ -n "$token" ]; then echo "::add-mask::$token"; echo "TOKEN=$token" >> "$GITHUB_ENV"; exit 0; fi
+            sleep 1
+          done
+          echo "Login failed" && exit 1
+
       # End-to-end through the containers: the migrator created the schema, the API writes to it.
       - name: Register a vehicle through the API
         run: |
           curl --fail --silent --show-error -X POST http://127.0.0.1:8080/api/v1/vehicles \
+            -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json" \
             -d '{"callsign":"CI-01","mavlinkSystemId":9,"autopilot":"Px4","type":"Multirotor","connection":{"transport":"Simulator"}}'
-          curl --fail --silent --show-error "http://127.0.0.1:8080/api/v1/vehicles?search=CI-01" | grep -q '"totalCount":1'
+          curl --fail --silent --show-error -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:8080/api/v1/vehicles?search=CI-01" | grep -q '"totalCount":1'
 
       # The simulator container sends MAVLink to the API over UDP; the API must connect and receive telemetry.
       - name: Connect to the simulated vehicle over MAVLink/UDP
@@ -118,10 +139,10 @@ jobs:
             -d '{"callsign":"SIM-01","mavlinkSystemId":1,"autopilot":"Px4","type":"Multirotor","connection":{"transport":"Udp","host":"0.0.0.0","port":14550}}' \
             | sed -E 's/.*"id":"([^"]+)".*/\1/')
           echo "SIM_ID=$id" >> "$GITHUB_ENV"
-          curl --fail --silent --show-error -X POST "http://127.0.0.1:8080/api/v1/vehicles/$id/connection" > /dev/null
+          curl --fail --silent --show-error -X POST -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:8080/api/v1/vehicles/$id/connection" > /dev/null
           for i in $(seq 1 30); do
-            if curl --silent "http://127.0.0.1:8080/api/v1/vehicles/$id/connection" | grep -q '"state":"Connected"'; then
-              curl --fail --silent --show-error "http://127.0.0.1:8080/api/v1/vehicles/$id/telemetry"
+            if curl --silent -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:8080/api/v1/vehicles/$id/connection" | grep -q '"state":"Connected"'; then
+              curl --fail --silent --show-error -H "Authorization: Bearer $TOKEN" "http://127.0.0.1:8080/api/v1/vehicles/$id/telemetry"
               exit 0
             fi
             sleep 1
@@ -132,10 +153,11 @@ jobs:
       - name: Command the simulated vehicle (lease, RTL, audit log)
         run: |
           api="http://127.0.0.1:8080/api/v1/vehicles/$SIM_ID"
-          curl --fail --silent --show-error -X POST "$api/command-lease" -H "X-Operator: ci"
-          curl --fail --silent --show-error -X POST "$api/commands" -H "X-Operator: ci" \
+          auth="Authorization: Bearer $TOKEN"
+          curl --fail --silent --show-error -X POST "$api/command-lease" -H "$auth"
+          curl --fail --silent --show-error -X POST "$api/commands" -H "$auth" \
             -H "Content-Type: application/json" -d '{"command":"ReturnToLaunch"}'
-          curl --fail --silent --show-error "$api/commands" | grep -q '"operator":"ci","command":"ReturnToLaunch","parameters":null,"outcome":"Accepted"'
+          curl --fail --silent --show-error -H "$auth" "$api/commands" | grep -q '"operator":"admin","command":"ReturnToLaunch","parameters":null,"outcome":"Accepted"'
 
       - name: Show logs on failure
         if: failure()

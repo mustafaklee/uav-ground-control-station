@@ -1,4 +1,5 @@
 using Gcs.Application.Abstractions;
+using Gcs.Infrastructure.Commands;
 using Gcs.Infrastructure.LinkEvents;
 using Gcs.Infrastructure.Outbox;
 using Gcs.Mavlink;
@@ -36,6 +37,12 @@ public static class DependencyInjection
         services.AddSingleton<IVehicleLinkEventSink>(sp => sp.GetRequiredService<VehicleLinkEventDispatcher>());
         services.AddHostedService(sp => sp.GetRequiredService<VehicleLinkEventDispatcher>());
         services.AddHostedService<VehicleLinkRestorer>();
+
+        services.AddOptions<CommandLeaseOptions>()
+            .BindConfiguration(CommandLeaseOptions.SectionName)
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddSingleton<ICommandLeaseStore, InMemoryCommandLeaseStore>();
 
         return services;
     }

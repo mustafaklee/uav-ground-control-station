@@ -90,5 +90,8 @@ public sealed class TelemetryBroadcasterTests : IDisposable
         }
 
         public Task PublishLinkStatusAsync(VehicleLinkResponse status, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task PublishCommandLeaseAsync(Gcs.Contracts.Commands.CommandLeaseResponse lease, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 }

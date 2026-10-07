@@ -1,4 +1,5 @@
 using Gcs.Application.Abstractions;
+using Gcs.Contracts.Commands;
 using Gcs.Contracts.Realtime;
 using Gcs.Contracts.Vehicles;
 using Microsoft.AspNetCore.SignalR;
@@ -20,5 +21,11 @@ internal sealed class SignalRLiveUpdatePublisher(
     {
         ArgumentNullException.ThrowIfNull(status);
         return vehiclesHub.Clients.All.LinkStatusChanged(status);
+    }
+
+    public Task PublishCommandLeaseAsync(CommandLeaseResponse lease, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(lease);
+        return vehiclesHub.Clients.All.CommandLeaseChanged(lease);
     }
 }

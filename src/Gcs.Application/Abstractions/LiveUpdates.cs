@@ -1,3 +1,4 @@
+using Gcs.Contracts.Commands;
 using Gcs.Contracts.Vehicles;
 using Gcs.Domain.Common;
 using Gcs.Domain.Telemetry;
@@ -15,6 +16,9 @@ public interface ILiveUpdatePublisher
     Task PublishTelemetryAsync(TelemetryResponse telemetry, CancellationToken cancellationToken);
 
     Task PublishLinkStatusAsync(VehicleLinkResponse status, CancellationToken cancellationToken);
+
+    /// <summary>Someone took or released control of a vehicle; every operator's screen shows who is in control.</summary>
+    Task PublishCommandLeaseAsync(CommandLeaseResponse lease, CancellationToken cancellationToken);
 }
 
 /// <summary>

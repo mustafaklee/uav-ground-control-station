@@ -1,3 +1,4 @@
+using Gcs.Contracts.Commands;
 using Gcs.Contracts.Vehicles;
 
 namespace Gcs.Contracts.Realtime;
@@ -11,7 +12,7 @@ public static class RealtimeRoutes
     /// <summary>Live telemetry. Clients subscribe per vehicle and receive updates at a throttled rate (default 5 Hz).</summary>
     public const string TelemetryHub = "/hubs/telemetry";
 
-    /// <summary>Fleet-wide vehicle events: link state changes for every vehicle.</summary>
+    /// <summary>Fleet-wide vehicle events: link state and command lease changes for every vehicle.</summary>
     public const string VehiclesHub = "/hubs/vehicles";
 }
 
@@ -34,4 +35,7 @@ public interface ITelemetryHubClient
 public interface IVehiclesHubClient
 {
     Task LinkStatusChanged(VehicleLinkResponse status);
+
+    /// <summary>An operator took or released control of a vehicle.</summary>
+    Task CommandLeaseChanged(CommandLeaseResponse lease);
 }

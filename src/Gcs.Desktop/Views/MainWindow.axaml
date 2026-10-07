@@ -50,8 +50,11 @@
           <Button Content="Connect" Command="{Binding ConnectCommand}" Classes="accent" />
           <Button Content="Disconnect" Command="{Binding DisconnectCommand}" />
         </StackPanel>
-        <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
-                   Foreground="#8A9AAB" Text="{Binding ServerAddress}" />
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
+          <TextBlock VerticalAlignment="Center" Foreground="#8A9AAB" Text="{Binding ServerAddress}" />
+          <TextBlock VerticalAlignment="Center" Foreground="#E6EDF3" Text="{Binding CurrentUser}" />
+          <Button Content="Sign out" Command="{Binding SignOutCommand}" />
+        </StackPanel>
       </DockPanel>
     </Border>
 

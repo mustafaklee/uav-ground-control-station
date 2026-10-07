@@ -23,5 +23,6 @@ public sealed class UnreachableDependenciesApiFactory : WebApplicationFactory<Pr
         builder.UseSetting("RabbitMq:UserName", "gcs");
         builder.UseSetting("RabbitMq:Password", "unused");
         builder.UseSetting("RabbitMq:ConnectionTimeoutSeconds", "2");
+        TestSecurity.Configure(builder);
     }
 }

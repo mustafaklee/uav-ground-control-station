@@ -161,6 +161,9 @@ Birden fazla API kopyası çalıştırdığımız gün (Phase 11/12) kirayı ort
 
 ### X-Operator başlığı güvenlik değildir
 
+> **Not (Phase 8):** Bu başlık kaldırıldı. Artık operatör, giriş yapmış kullanıcıdır ve adı access token'dan gelir.
+> Aşağıdaki curl örnekleri için [Phase 8 rehberindeki](phase-8-rehberi.md) token alma adımına bak.
+
 Kimlik doğrulama Phase 8'de gelecek. Şimdilik operatör adını `X-Operator: ali` başlığıyla bildiriyoruz. Bu
 **tanımlama**dır, **doğrulama** değil: herkes istediği adı yazabilir. Bunu yapmamızın sebebi, kira ve audit
 mantığını şimdiden eksiksiz kurup test etmek. Phase 8'de başlığın yerine giriş yapmış kullanıcı gelecek. Handler'lar

@@ -135,6 +135,110 @@ namespace Gcs.Persistence.Migrations
                     b.ToTable("missions", "gcs");
                 });
 
+            modelBuilder.Entity("Gcs.Domain.Users.RefreshToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid?>("ReplacedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("replaced_by");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .HasColumnName("token_hash")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_refresh_tokens");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ux_refresh_tokens_hash");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_refresh_tokens_user");
+
+                    b.ToTable("refresh_tokens", "gcs");
+                });
+
+            modelBuilder.Entity("Gcs.Domain.Users.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("FailedLogins")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed_logins");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<DateTimeOffset?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_login_at");
+
+                    b.Property<DateTimeOffset?>("LockedUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("locked_until");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("password_hash");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("role");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("username");
+
+                    b.HasKey("Id")
+                        .HasName("pk_users");
+
+                    b.HasIndex("Username")
+                        .IsUnique()
+                        .HasDatabaseName("ux_users_username");
+
+                    b.ToTable("users", "gcs");
+                });
+
             modelBuilder.Entity("Gcs.Domain.Vehicles.Vehicle", b =>
                 {
                     b.Property<Guid>("Id")
@@ -441,6 +545,16 @@ namespace Gcs.Persistence.Migrations
                     b.Navigation("Items");
 
                     b.Navigation("LastUpload");
+                });
+
+            modelBuilder.Entity("Gcs.Domain.Users.RefreshToken", b =>
+                {
+                    b.HasOne("Gcs.Domain.Users.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_refresh_tokens_users_user_id");
                 });
 #pragma warning restore 612, 618
         }

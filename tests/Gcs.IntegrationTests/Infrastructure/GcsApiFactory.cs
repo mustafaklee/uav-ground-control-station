@@ -15,6 +15,17 @@ public sealed class GcsApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder(ContainerImages.Postgres).Build();
     private readonly RabbitMqContainer _rabbitMq = new RabbitMqBuilder(ContainerImages.RabbitMq).Build();
 
+    public GcsApiFactory()
+    {
+        Users = new TestUsers(this);
+    }
+
+    /// <summary>Signs clients in as users of any role (see <see cref="TestUsers"/>).</summary>
+    public TestUsers Users { get; }
+
+    /// <summary>A client signed in as the bootstrap administrator, who has every permission.</summary>
+    public HttpClient CreateAdminClient() => Users.ClientFor(TestSecrets.AdminUsername, Gcs.Contracts.Auth.Roles.Administrator);
+
     /// <summary>AMQP URI of the test broker, for tests that consume published events.</summary>
     public Uri RabbitMqUri => new(_rabbitMq.GetConnectionString());
 
@@ -32,6 +43,9 @@ public sealed class GcsApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
         builder.UseSetting("ConnectionStrings:Postgres", _postgres.GetConnectionString());
         builder.UseSetting("Persistence:ApplyMigrationsOnStartup", "true");
         builder.UseSetting("Outbox:PollingIntervalMilliseconds", "200");
+
+        // Security: a per-run signing key and bootstrap administrator; limits high enough for the whole suite.
+        TestSecurity.Configure(builder);
 
         // Short link timings so loss detection and bounded retries finish within seconds.
         builder.UseSetting("Mavlink:HeartbeatTimeoutMilliseconds", "1500");

@@ -1,26 +1,31 @@
+using System.Security.Claims;
 using Gcs.Api.Http;
+using Gcs.Api.Security;
 using Gcs.Application.Commands;
 using Gcs.Contracts.Commands;
-using Microsoft.AspNetCore.Mvc;
 
 namespace Gcs.Api.Endpoints;
 
 /// <summary>
 /// Vehicle control: take/release control (command lease), send commands, read the audit log.
-/// Every request names its operator in <see cref="CommandHeaders.Operator"/> until authentication exists (Phase 8).
+/// The operator is the signed-in user: the name in the lease and in the audit log comes from the access token,
+/// so nobody can act under someone else's name.
 /// </summary>
 internal static class CommandEndpoints
 {
     public static IEndpointRouteBuilder MapCommandEndpoints(this IEndpointRouteBuilder endpoints)
     {
         var versionSet = endpoints.NewApiVersionSet().HasApiVersion(ApiVersions.V1).ReportApiVersions().Build();
-        var vehicles = endpoints.MapGroup("/api/v{version:apiVersion}/vehicles").WithApiVersionSet(versionSet).WithTags("Commands");
+        var vehicles = endpoints.MapGroup("/api/v{version:apiVersion}/vehicles").WithApiVersionSet(versionSet).WithTags("Commands")
+            .RequireAuthorization(Permissions.Read);
 
         vehicles.MapGet("/{id:guid}/command-lease", GetLeaseAsync).WithName("GetCommandLease");
-        vehicles.MapPost("/{id:guid}/command-lease", AcquireLeaseAsync).WithName("AcquireCommandLease");
-        vehicles.MapDelete("/{id:guid}/command-lease", ReleaseLeaseAsync).WithName("ReleaseCommandLease");
+        vehicles.MapPost("/{id:guid}/command-lease", AcquireLeaseAsync).WithName("AcquireCommandLease").RequireAuthorization(Permissions.Command);
+        vehicles.MapDelete("/{id:guid}/command-lease", ReleaseLeaseAsync).WithName("ReleaseCommandLease").RequireAuthorization(Permissions.Command);
         vehicles.MapGet("/{id:guid}/flight-modes", GetFlightModesAsync).WithName("GetFlightModes");
-        vehicles.MapPost("/{id:guid}/commands", SendAsync).WithName("SendVehicleCommand");
+        vehicles.MapPost("/{id:guid}/commands", SendAsync).WithName("SendVehicleCommand")
+            .RequireAuthorization(Permissions.Command)
+            .RequireRateLimiting(SecurityServiceCollectionExtensions.CommandRateLimit);
         vehicles.MapGet("/{id:guid}/commands", ListAuditAsync).WithName("ListVehicleCommands");
 
         return endpoints;
@@ -34,21 +39,21 @@ internal static class CommandEndpoints
 
     private static async Task<IResult> AcquireLeaseAsync(
         Guid id,
-        [FromHeader(Name = CommandHeaders.Operator)] string? operatorName,
+        ClaimsPrincipal user,
         AcquireCommandLeaseHandler handler,
         CancellationToken cancellationToken)
     {
-        var result = await handler.HandleAsync(id, operatorName, cancellationToken);
+        var result = await handler.HandleAsync(id, user.Identity?.Name, cancellationToken);
         return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
     }
 
     private static async Task<IResult> ReleaseLeaseAsync(
         Guid id,
-        [FromHeader(Name = CommandHeaders.Operator)] string? operatorName,
+        ClaimsPrincipal user,
         ReleaseCommandLeaseHandler handler,
         CancellationToken cancellationToken)
     {
-        var result = await handler.HandleAsync(id, operatorName, cancellationToken);
+        var result = await handler.HandleAsync(id, user.Identity?.Name, cancellationToken);
         return result.IsSuccess ? TypedResults.NoContent() : result.Error.ToProblem();
     }
 
@@ -65,11 +70,11 @@ internal static class CommandEndpoints
     private static async Task<IResult> SendAsync(
         Guid id,
         SendCommandRequest request,
-        [FromHeader(Name = CommandHeaders.Operator)] string? operatorName,
+        ClaimsPrincipal user,
         SendVehicleCommandHandler handler,
         CancellationToken cancellationToken)
     {
-        var result = await handler.HandleAsync(id, operatorName, request, cancellationToken);
+        var result = await handler.HandleAsync(id, user.Identity?.Name, request, cancellationToken);
         return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
     }
 

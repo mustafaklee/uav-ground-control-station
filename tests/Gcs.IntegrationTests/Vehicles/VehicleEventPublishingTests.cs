@@ -27,7 +27,7 @@ public sealed class VehicleEventPublishingTests(GcsApiFactory factory)
         var queue = await channel.QueueDeclareAsync(queue: string.Empty, durable: false, exclusive: true, autoDelete: true, cancellationToken: ct);
         await channel.QueueBindAsync(queue.QueueName, EventsExchange, routingKey: "vehicle.*", cancellationToken: ct);
 
-        using var client = factory.CreateClient();
+        using var client = factory.CreateAdminClient();
         var callsign = TestData.NextCallsign("EVT");
         var response = await client.PostAsJsonAsync("/api/v1/vehicles", TestData.Registration(callsign), ct);
         var vehicle = await response.Content.ReadFromJsonAsync<VehicleResponse>(ct);

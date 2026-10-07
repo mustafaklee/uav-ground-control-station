@@ -17,7 +17,7 @@ public sealed class VehicleLinkTests(GcsApiFactory factory)
 {
     private const string BasePath = "/api/v1/vehicles";
     private static readonly TimeSpan LinkTimeout = TimeSpan.FromSeconds(15);
-    private readonly HttpClient _client = factory.CreateClient();
+    private readonly HttpClient _client = factory.CreateAdminClient();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -99,7 +99,7 @@ public sealed class VehicleLinkTests(GcsApiFactory factory)
 
         // A second host on the same database starts with empty link state, exactly like the API after a restart.
         await using var restarted = factory.WithWebHostBuilder(_ => { });
-        using var restartedClient = restarted.CreateClient();
+        using var restartedClient = new TestUsers(restarted).ClientFor(TestSecrets.AdminUsername, Gcs.Contracts.Auth.Roles.Administrator);
 
         var link = await Eventually.GetAsync(
             async () => (await restartedClient.GetFromJsonAsync<VehicleLinkResponse>($"{BasePath}/{vehicle.Id}/connection", Ct))!,

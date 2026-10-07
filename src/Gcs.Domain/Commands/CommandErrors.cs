@@ -24,7 +24,7 @@ public static class CommandErrors
 
     public static readonly Error OperatorRequired = Error.Validation(
         "command.operator_required",
-        $"Send who is acting in the X-Operator header: 1 to {OperatorName.MaxLength} letters, digits or . _ @ -.");
+        $"The acting user's name must be 1 to {OperatorName.MaxLength} letters, digits or . _ @ -.");
 
     public static readonly Error LeaseRequired = Error.Conflict(
         "command.lease_required", "Take control of the vehicle (acquire its command lease) before sending commands.");

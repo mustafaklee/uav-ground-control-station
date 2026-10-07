@@ -28,7 +28,9 @@ metres above home. For PX4 the GCS adds the home altitude, which it derives from
 
 ## API
 
-Every lease and command request names the operator in the `X-Operator` header until sign-in exists (Phase 8).
+Every request needs a bearer token ([docs/security.md](security.md)). The operator in leases and audit rows is the
+signed-in user. Taking control and sending commands need the `vehicles.command` permission (roles Operator and
+Administrator); reading leases, flight modes and the audit log needs only `read`.
 
 | Request | Answer |
 |---|---|
@@ -41,7 +43,7 @@ Every lease and command request names the operator in the `X-Operator` header un
 
 ```http
 POST /api/v1/vehicles/{id}/commands
-X-Operator: operator01
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 Content-Type: application/json
 
 { "command": "Takeoff", "altitude": 30, "confirm": true }
@@ -94,11 +96,13 @@ it lose packets (`DropNextCommands`) or never answer (`IgnoreCommands`).
 Try it against the compose stack (vehicle `SIM-01` registered as in the [README](../README.md)):
 
 ```bash
+token=$(curl -s -X POST localhost:8080/api/v1/auth/login -H "Content-Type: application/json" \
+     -d '{"username":"admin","password":"<GCS_ADMIN_PASSWORD from .env>"}' | sed -E 's/.*"accessToken":"([^"]+)".*/\1/')
 id=<vehicle id>
-curl -X POST localhost:8080/api/v1/vehicles/$id/command-lease -H "X-Operator: me"
-curl -X POST localhost:8080/api/v1/vehicles/$id/commands -H "X-Operator: me" \
+curl -X POST localhost:8080/api/v1/vehicles/$id/command-lease -H "Authorization: Bearer $token"
+curl -X POST localhost:8080/api/v1/vehicles/$id/commands -H "Authorization: Bearer $token" \
      -H "Content-Type: application/json" -d '{"command":"Disarm","confirm":true}'   # 409: Denied in flight
-curl -X POST localhost:8080/api/v1/vehicles/$id/commands -H "X-Operator: me" \
+curl -X POST localhost:8080/api/v1/vehicles/$id/commands -H "Authorization: Bearer $token" \
      -H "Content-Type: application/json" -d '{"command":"ReturnToLaunch"}'          # 200: flies home and lands
-curl localhost:8080/api/v1/vehicles/$id/commands
+curl localhost:8080/api/v1/vehicles/$id/commands -H "Authorization: Bearer $token"
 ```

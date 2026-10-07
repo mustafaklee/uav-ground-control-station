@@ -37,6 +37,9 @@ control again, which is the safe default. When the API runs as several instances
 to a shared store (a PostgreSQL row with `SELECT ... FOR UPDATE`, or Redis `SET NX PX`). `ICommandLeaseStore` is the
 seam for that change. This is one of the Redis triggers listed in ADR-011.
 
+> **Update (Phase 8, [ADR-015](ADR-015-authentication-and-authorization.md)):** the header is gone. The operator is
+> the signed-in user, taken from the access token, and commands need the `vehicles.command` permission.
+
 Until Phase 8 the operator is named by the `X-Operator` header (letters, digits, `. _ @ -`, at most 64 characters).
 This is **identification, not authentication**: anyone can type any name. It exists so the lease and audit logic are
 complete and tested now. Phase 8 replaces the header with the authenticated user and adds role checks

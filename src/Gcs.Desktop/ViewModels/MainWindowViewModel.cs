@@ -22,14 +22,18 @@ public sealed partial class MainWindowViewModel : ObservableObject
         IUiDispatcher ui,
         Uri apiBaseUrl,
         IConfirmationService? confirmation = null,
-        string operatorName = "operator")
+        string operatorName = "operator",
+        string role = "Operator")
     {
         _api = api;
         _realtime = realtime;
         _ui = ui;
         ServerAddress = apiBaseUrl.ToString();
         Planner = new MissionPlannerViewModel(api, () => SelectedVehicle);
-        Commands = new CommandPanelViewModel(api, confirmation ?? new DenyAllConfirmation(), () => SelectedVehicle, operatorName);
+        // Only roles with the Command permission get working control buttons; the server enforces it regardless.
+        var mayCommand = role is "Operator" or "Administrator";
+        Commands = new CommandPanelViewModel(api, confirmation ?? new DenyAllConfirmation(), () => SelectedVehicle, operatorName, mayCommand);
+        CurrentUser = $"{operatorName} ({role})";
 
         _realtime.TelemetryReceived += telemetry => _ui.Post(() => OnTelemetry(telemetry));
         _realtime.LinkStatusReceived += status => _ui.Post(() => OnLinkStatus(status));
@@ -40,6 +44,12 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public string Title { get; } = "UAV Ground Control Station";
 
     public string ServerAddress { get; }
+
+    /// <summary>"name (Role)" for the toolbar.</summary>
+    public string CurrentUser { get; }
+
+    /// <summary>Raised by the Sign out button; the app ends the session and shows the sign-in window.</summary>
+    public event EventHandler? SignOutRequested;
 
     public ObservableCollection<VehicleItemViewModel> Vehicles { get; } = [];
 
@@ -105,6 +115,9 @@ public sealed partial class MainWindowViewModel : ObservableObject
             ErrorMessage = $"Cannot reach the backend at {ServerAddress}: {ex.Message}";
         }
     }
+
+    [RelayCommand]
+    private void SignOut() => SignOutRequested?.Invoke(this, EventArgs.Empty);
 
     [RelayCommand(CanExecute = nameof(CanConnect))]
     private Task ConnectAsync(CancellationToken cancellationToken) =>

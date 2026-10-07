@@ -81,6 +81,11 @@ services:
       RabbitMq__HostName: rabbitmq
       RabbitMq__UserName: ${RABBITMQ_USER:-gcs}
       RabbitMq__Password: ${RABBITMQ_PASSWORD:-gcs_dev_password}
+      # Secrets, never defaults: compose refuses to start without a signing key (see .env.example).
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY in .env, e.g. openssl rand -base64 48}
+      # Creates the first administrator while no user exists; ignored afterwards.
+      Security__BootstrapAdministrator__Username: ${GCS_ADMIN_USERNAME:-admin}
+      Security__BootstrapAdministrator__Password: ${GCS_ADMIN_PASSWORD:-}
     ports:
       - "127.0.0.1:8080:8080"
       # MAVLink from vehicles/SITL on the host. Register a vehicle with transport Udp, host 0.0.0.0, port 14550.

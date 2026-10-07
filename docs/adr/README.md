@@ -19,3 +19,4 @@ New ADRs get the next number; superseded ADRs are kept and marked as superseded.
 | [ADR-012](ADR-012-desktop-map-and-avalonia-version.md) | Mapsui for the operator map, Avalonia 11.3, OSM tiles now, offline tiles before field use |
 | [ADR-013](ADR-013-mission-storage-and-validation.md) | Mission items as JSONB in the mission row; field rules reject, flyability rules gate upload |
 | [ADR-014](ADR-014-command-lease-ack-and-audit.md) | Command lease (one operator per vehicle), COMMAND_ACK timeout/retry, duplicate refusal, write-ahead append-only audit |
+| [ADR-015](ADR-015-authentication-and-authorization.md) | Own users with PBKDF2, short JWT + rotating refresh tokens, role-to-permission policies, rate limiting |

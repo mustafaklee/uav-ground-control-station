@@ -20,7 +20,7 @@ public sealed class RealtimeAndHistoryTests(GcsApiFactory factory)
 {
     private const string BasePath = "/api/v1/vehicles";
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(15);
-    private readonly HttpClient _client = factory.CreateClient();
+    private readonly HttpClient _client = factory.CreateAdminClient();
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -142,6 +142,7 @@ public sealed class RealtimeAndHistoryTests(GcsApiFactory factory)
                 // The in-memory test server has no real sockets, so use HTTP long polling through its handler.
                 options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
                 options.Transports = HttpTransportType.LongPolling;
+                options.AccessTokenProvider = async () => await factory.Users.TokenAsync(TestSecrets.AdminUsername, Gcs.Contracts.Auth.Roles.Administrator);
             })
             .Build();
         await connection.StartAsync(Ct);

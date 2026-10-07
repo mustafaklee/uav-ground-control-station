@@ -1,6 +1,7 @@
 using FluentValidation;
 using Gcs.Application.Commands;
 using Gcs.Application.Missions;
+using Gcs.Application.Security;
 using Gcs.Application.Vehicles;
 using Gcs.Contracts.Vehicles;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,6 +48,16 @@ public static class DependencyInjection
         services.AddScoped<GetFlightModesHandler>();
         services.AddScoped<SendVehicleCommandHandler>();
         services.AddScoped<ListCommandAuditHandler>();
+
+        services.AddScoped<LoginHandler>();
+        services.AddScoped<RefreshSessionHandler>();
+        services.AddScoped<LogoutHandler>();
+        services.AddScoped<ChangePasswordHandler>();
+        services.AddScoped<GetUserHandler>();
+        services.AddScoped<ListUsersHandler>();
+        services.AddScoped<CreateUserHandler>();
+        services.AddScoped<UpdateUserHandler>();
+        services.AddScoped<BootstrapAdministratorHandler>();
 
         return services;
     }

@@ -5,8 +5,8 @@ using Gcs.Domain.Vehicles;
 namespace Gcs.Domain.Commands;
 
 /// <summary>
-/// Who is acting, e.g. <c>operator01</c>. Until users and sign-in exist (Phase 8) the client states it; afterwards it
-/// comes from the authenticated user. Either way the rest of the system only sees this value.
+/// Who is acting, e.g. <c>operator01</c>: the signed-in user's name, taken from the access token (never from the client's
+/// own claim). The rest of the system only sees this value.
 /// </summary>
 public sealed partial record OperatorName
 {

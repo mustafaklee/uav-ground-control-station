@@ -16,7 +16,8 @@ internal static class SystemEndpoints
 
         var group = endpoints.MapGroup("/api/v{version:apiVersion}/system")
             .WithApiVersionSet(versionSet)
-            .WithTags("System");
+            .WithTags("System")
+            .AllowAnonymous(); // name, version and environment only: what a monitoring probe needs
 
         group.MapGet("/info", (IHostEnvironment environment) => TypedResults.Ok(new SystemInfoResponse(
                 ServiceName,

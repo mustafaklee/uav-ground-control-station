@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Threading.Channels;
 using Gcs.Application.Abstractions;
 using Gcs.Mavlink.Protocol;
@@ -44,6 +45,7 @@ public sealed class CommandExchange(
         for (var attempt = 1; attempt <= options.MaxRetries + 1; attempt++)
         {
             var confirmation = (byte)Math.Min(attempt - 1, byte.MaxValue);
+            Activity.Current?.AddEvent(new ActivityEvent("COMMAND_LONG sent", tags: new ActivityTagsCollection { ["mavlink.confirmation"] = confirmation }));
             await send(command with { Confirmation = confirmation }, cancellationToken);
 
             var ack = await ReceiveAsync(command.Command, options.AckTimeout, cancellationToken);

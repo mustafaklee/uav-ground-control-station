@@ -1,5 +1,6 @@
 using FluentValidation;
 using Gcs.Application.Commands;
+using Gcs.Application.Diagnostics;
 using Gcs.Application.Missions;
 using Gcs.Application.Security;
 using Gcs.Application.Vehicles;
@@ -18,6 +19,9 @@ public static class DependencyInjection
 
         // TimeProvider instead of DateTimeOffset.UtcNow, so tests can control "now".
         services.TryAddSingleton(TimeProvider.System);
+
+        // Business metrics; IMeterFactory comes from the host (every .NET host registers it).
+        services.TryAddSingleton<GcsMetrics>();
 
         services.AddSingleton<IValidator<RegisterVehicleRequest>, VehicleFieldsValidator<RegisterVehicleRequest>>();
         services.AddSingleton<IValidator<UpdateVehicleRequest>, VehicleFieldsValidator<UpdateVehicleRequest>>();

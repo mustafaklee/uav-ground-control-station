@@ -1,4 +1,5 @@
 using Gcs.Api.Http;
+using Gcs.Api.Security;
 using Gcs.Application.Vehicles;
 using Gcs.Contracts.Common;
 using Gcs.Contracts.Vehicles;
@@ -23,16 +24,17 @@ internal static class VehicleEndpoints
 
         var group = endpoints.MapGroup("/api/v{version:apiVersion}/vehicles")
             .WithApiVersionSet(versionSet)
-            .WithTags("Vehicles");
+            .WithTags("Vehicles")
+            .RequireAuthorization(Permissions.Read);
 
         group.MapGet("/", ListAsync).WithName("ListVehicles");
         group.MapGet("/{id:guid}", GetAsync).WithName(GetVehicleRouteName);
-        group.MapPost("/", RegisterAsync).WithName("RegisterVehicle");
-        group.MapPut("/{id:guid}", UpdateAsync).WithName("UpdateVehicle");
-        group.MapDelete("/{id:guid}", RetireAsync).WithName("RetireVehicle");
+        group.MapPost("/", RegisterAsync).WithName("RegisterVehicle").RequireAuthorization(Permissions.ManageVehicles);
+        group.MapPut("/{id:guid}", UpdateAsync).WithName("UpdateVehicle").RequireAuthorization(Permissions.ManageVehicles);
+        group.MapDelete("/{id:guid}", RetireAsync).WithName("RetireVehicle").RequireAuthorization(Permissions.ManageVehicles);
 
-        group.MapPost("/{id:guid}/connection", ConnectAsync).WithName("ConnectVehicle");
-        group.MapDelete("/{id:guid}/connection", DisconnectAsync).WithName("DisconnectVehicle");
+        group.MapPost("/{id:guid}/connection", ConnectAsync).WithName("ConnectVehicle").RequireAuthorization(Permissions.LinkVehicles);
+        group.MapDelete("/{id:guid}/connection", DisconnectAsync).WithName("DisconnectVehicle").RequireAuthorization(Permissions.LinkVehicles);
         group.MapGet("/{id:guid}/connection", GetConnectionAsync).WithName("GetVehicleConnection");
         group.MapGet("/{id:guid}/telemetry", GetTelemetryAsync).WithName("GetVehicleTelemetry");
         group.MapGet("/{id:guid}/telemetry/history", GetTelemetryHistoryAsync).WithName("GetVehicleTelemetryHistory");

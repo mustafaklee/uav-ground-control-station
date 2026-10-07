@@ -1,4 +1,5 @@
 using Gcs.Api.Http;
+using Gcs.Api.Security;
 using Gcs.Application.Missions;
 using Gcs.Contracts.Missions;
 using Microsoft.AspNetCore.Mvc;
@@ -14,16 +15,18 @@ internal static class MissionEndpoints
     {
         var versionSet = endpoints.NewApiVersionSet().HasApiVersion(ApiVersions.V1).ReportApiVersions().Build();
 
-        var missions = endpoints.MapGroup("/api/v{version:apiVersion}/missions").WithApiVersionSet(versionSet).WithTags("Missions");
+        var missions = endpoints.MapGroup("/api/v{version:apiVersion}/missions").WithApiVersionSet(versionSet).WithTags("Missions")
+            .RequireAuthorization(Permissions.Read);
         missions.MapGet("/", ListAsync).WithName("ListMissions");
         missions.MapGet("/{id:guid}", GetAsync).WithName(GetMissionRouteName);
-        missions.MapPost("/", CreateAsync).WithName("CreateMission");
-        missions.MapPut("/{id:guid}", UpdateAsync).WithName("UpdateMission");
-        missions.MapDelete("/{id:guid}", ArchiveAsync).WithName("ArchiveMission");
-        missions.MapPost("/{id:guid}/upload", UploadAsync).WithName("UploadMission");
+        missions.MapPost("/", CreateAsync).WithName("CreateMission").RequireAuthorization(Permissions.PlanMissions);
+        missions.MapPut("/{id:guid}", UpdateAsync).WithName("UpdateMission").RequireAuthorization(Permissions.PlanMissions);
+        missions.MapDelete("/{id:guid}", ArchiveAsync).WithName("ArchiveMission").RequireAuthorization(Permissions.PlanMissions);
+        missions.MapPost("/{id:guid}/upload", UploadAsync).WithName("UploadMission").RequireAuthorization(Permissions.PlanMissions);
 
+        // Reading a vehicle's mission uses its radio link (and blocks uploads meanwhile), so it is a planner action.
         var vehicles = endpoints.MapGroup("/api/v{version:apiVersion}/vehicles").WithApiVersionSet(versionSet).WithTags("Missions");
-        vehicles.MapGet("/{id:guid}/mission", DownloadAsync).WithName("DownloadVehicleMission");
+        vehicles.MapGet("/{id:guid}/mission", DownloadAsync).WithName("DownloadVehicleMission").RequireAuthorization(Permissions.PlanMissions);
 
         return endpoints;
     }

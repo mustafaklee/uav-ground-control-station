@@ -20,14 +20,14 @@ internal static class HealthEndpoints
         {
             Predicate = _ => false,
             ResponseWriter = WriteResponseAsync,
-        });
+        }).AllowAnonymous(); // probes from Docker/Kubernetes have no token
 
         // Readiness: the instance can serve traffic only when PostgreSQL and RabbitMQ are reachable.
         endpoints.MapHealthChecks(ReadyPath, new HealthCheckOptions
         {
             Predicate = registration => registration.Tags.Contains(HealthCheckTags.Ready),
             ResponseWriter = WriteResponseAsync,
-        });
+        }).AllowAnonymous();
 
         return endpoints;
     }

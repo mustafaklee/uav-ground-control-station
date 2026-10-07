@@ -3,6 +3,7 @@ using Gcs.Api;
 using Gcs.Api.Endpoints;
 using Gcs.Api.Middleware;
 using Gcs.Api.Realtime;
+using Gcs.Api.Security;
 using Gcs.Application;
 using Gcs.Application.Abstractions;
 using Gcs.Contracts.Realtime;
@@ -34,6 +35,7 @@ try
             options.ApiVersionReader = new UrlSegmentApiVersionReader();
         });
 
+    builder.Services.AddGcsSecurity();
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
 
@@ -44,9 +46,21 @@ try
     var app = builder.Build();
 
     app.UseMiddleware<CorrelationIdMiddleware>();
+    app.UseMiddleware<SecurityHeadersMiddleware>();
     app.UseSerilogRequestLogging();
     app.UseExceptionHandler();
     app.UseStatusCodePages();
+
+    // HTTPS: in production the API runs behind a TLS-terminating proxy or with a configured certificate (docs/security.md).
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseHsts();
+    }
+
+    // Order matters: who you are (authentication) → how often you may ask (rate limit, per user) → what you may do.
+    app.UseAuthentication();
+    app.UseRateLimiter();
+    app.UseAuthorization();
 
     if (app.Environment.IsDevelopment())
     {
@@ -58,8 +72,9 @@ try
     app.MapVehicleEndpoints();
     app.MapMissionEndpoints();
     app.MapCommandEndpoints();
-    app.MapHub<TelemetryHub>(RealtimeRoutes.TelemetryHub);
-    app.MapHub<VehiclesHub>(RealtimeRoutes.VehiclesHub);
+    app.MapAuthEndpoints();
+    app.MapHub<TelemetryHub>(RealtimeRoutes.TelemetryHub).RequireAuthorization(Permissions.Read);
+    app.MapHub<VehiclesHub>(RealtimeRoutes.VehiclesHub).RequireAuthorization(Permissions.Read);
 
     await app.Services.InitializeInfrastructureAsync(app.Lifetime.ApplicationStopping);
     await app.RunAsync();

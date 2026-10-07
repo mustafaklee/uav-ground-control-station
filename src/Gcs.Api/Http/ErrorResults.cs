@@ -26,6 +26,7 @@ internal static class ErrorResults
 
             // 504: the API itself is fine, the system behind it (the vehicle) did not answer.
             ErrorType.Timeout => Problem(StatusCodes.Status504GatewayTimeout, "Vehicle did not answer", error, extensions),
+            ErrorType.Unauthorized => Problem(StatusCodes.Status401Unauthorized, "Unauthorized", error, extensions),
             _ => throw new ArgumentOutOfRangeException(nameof(error), error.Type, "Unhandled error type."),
         };
     }

@@ -59,6 +59,7 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
     private int _sequence;
     private int _disposed;
     private double _homeAltitudeMsl = double.NaN;
+    private volatile GlobalPositionIntMessage? _lastPosition;
 
     public MavlinkConnection(
         VehicleLinkTarget target,
@@ -85,6 +86,10 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
     }
 
     public VehicleLinkTarget Target => _target;
+
+    /// <summary>The vehicle's last reported position (1e-7 degrees), or null before the first GLOBAL_POSITION_INT.</summary>
+    public (int LatitudeE7, int LongitudeE7)? LastPosition =>
+        _lastPosition is { } p ? (p.LatitudeE7, p.LongitudeE7) : null;
 
     public ConnectionState State
     {
@@ -328,6 +333,7 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
         {
             // MSL altitude minus altitude above home = home altitude; PX4 takeoff commands need it.
             Volatile.Write(ref _homeAltitudeMsl, (position.AltitudeMslMillimetres - position.RelativeAltitudeMillimetres) / 1000.0);
+            _lastPosition = position;
         }
 
         var now = _time.GetUtcNow();
@@ -376,6 +382,10 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
 
     public static readonly Error NotConnected = Error.Conflict(
         "vehicle.link.not_connected", "The vehicle is not connected. Connect it and wait for its heartbeat first.");
+
+    public static readonly Error PositionUnknown = Error.Conflict(
+        "vehicle.mission.position_unknown",
+        "The mission has a takeoff or land without a position, which means \"here\", but the vehicle has not reported its position yet.");
 
     public static readonly Error TransferInProgress = Error.Conflict(
         "vehicle.mission.transfer_in_progress",

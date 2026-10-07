@@ -19,6 +19,9 @@ public sealed class CorrelationIdMiddleware(RequestDelegate next)
 
         var correlationId = ResolveCorrelationId(context.Request.Headers[HeaderName].ToString());
         context.TraceIdentifier = correlationId;
+
+        // On the request's span too: search the trace view by the id a user reports from an error message.
+        System.Diagnostics.Activity.Current?.SetTag(Gcs.Application.Diagnostics.GcsTracing.CorrelationId, correlationId);
         context.Response.OnStarting(() =>
         {
             context.Response.Headers[HeaderName] = correlationId;

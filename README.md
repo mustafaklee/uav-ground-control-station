@@ -6,7 +6,13 @@ A modular, testable ground control station (GCS) for managing multiple UAVs over
 ASP.NET Core, PostgreSQL, RabbitMQ, SignalR and Avalonia UI. It is engineered like a defence-industry product:
 reliability, safety, security and observability come before features.
 
-> **Status: Phase 8, security.** Users sign in (JWT access tokens for 15 minutes, rotating refresh tokens with reuse
+> **Status: Phase 9, observability.** OpenTelemetry traces and metrics, with logs correlated by trace id. One trace
+> follows an operator action from the HTTP request through PostgreSQL to the MAVLink exchange. The trace context
+> travels through the outbox into RabbitMQ message headers. `/health/details` reports vehicle links, the outbox backlog
+> and history writes. `docker compose` includes the Aspire dashboard at http://localhost:18888. See
+> [docs/observability.md](docs/observability.md).
+>
+> Phase 8, security: Users sign in (JWT access tokens for 15 minutes, rotating refresh tokens with reuse
 > detection). Four roles map to permission policies, and a test checks every endpoint against every role. Passwords are
 > hashed with PBKDF2 and accounts lock after repeated failures. The API is rate limited and sends defensive headers, and
 > secrets come only from user-secrets or `.env`. The desktop client has a sign-in window. See
@@ -87,7 +93,8 @@ Avalonia GCS ──REST/SignalR──► Gcs.Api ──► Application ──►
 | JWT sign-in, rotating refresh tokens with reuse detection, account lockout | ✅ Phase 8 |
 | Roles → permission policies (critical commands need `vehicles.command`), authorization-matrix tests | ✅ Phase 8 |
 | Rate limiting (global, login, commands), security headers, secrets outside the repo, desktop sign-in | ✅ Phase 8 |
-| OpenTelemetry metrics and tracing | Planned (Phase 9) |
+| OpenTelemetry tracing and metrics, trace context through outbox and RabbitMQ, logs with trace id | ✅ Phase 9 |
+| Health monitoring (`/health/details`: links, outbox backlog, history), Aspire dashboard in compose | ✅ Phase 9 |
 | PX4 SITL integration | Planned (Phase 10) |
 
 ## Technology stack
@@ -160,6 +167,7 @@ curl http://localhost:8080/health/ready
 |---|---|
 | API | http://localhost:8080 |
 | RabbitMQ management | http://localhost:15672 |
+| Observability dashboard (traces, metrics, logs) | http://localhost:18888 |
 | PostgreSQL | localhost:5432 |
 | Redis (unused until Phase 4) | localhost:6379 |
 | MAVLink (UDP, GCS listens) | localhost:14550/udp |

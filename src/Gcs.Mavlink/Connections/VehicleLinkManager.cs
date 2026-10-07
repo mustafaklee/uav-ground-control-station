@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Gcs.Application.Abstractions;
+using Gcs.Application.Diagnostics;
 using Gcs.Domain.Commands;
 using Gcs.Domain.Common;
 using Gcs.Domain.Missions;
@@ -23,7 +24,8 @@ internal sealed class VehicleLinkManager(
     IVehicleLinkEventSink events,
     IOptions<MavlinkConnectionOptions> options,
     TimeProvider time,
-    ILoggerFactory loggers) : IVehicleLinkManager, IVehicleMissionTransfer, IVehicleCommandSender, IAsyncDisposable
+    ILoggerFactory loggers,
+    GcsMetrics metrics) : IVehicleLinkManager, IVehicleMissionTransfer, IVehicleCommandSender, IAsyncDisposable
 {
     private static readonly Error AlreadyConnected = Error.Conflict(
         "vehicle.link.already_active",
@@ -31,6 +33,7 @@ internal sealed class VehicleLinkManager(
 
     private readonly ConcurrentDictionary<VehicleId, MavlinkConnection> _connections = new();
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private int _gaugeRegistered;
 
     public async Task<Result> ConnectAsync(VehicleLinkTarget target, CancellationToken cancellationToken)
     {
@@ -52,8 +55,9 @@ internal sealed class VehicleLinkManager(
                 await existing.DisposeAsync();
             }
 
+            RegisterGauge();
             var connection = new MavlinkConnection(
-                target, transports, telemetry, events, options.Value, time, loggers.CreateLogger<MavlinkConnection>());
+                target, transports, telemetry, events, options.Value, time, loggers.CreateLogger<MavlinkConnection>(), metrics: metrics);
             _connections[target.VehicleId] = connection;
             connection.Start();
             return Result.Success();
@@ -77,6 +81,21 @@ internal sealed class VehicleLinkManager(
         finally
         {
             _gate.Release();
+        }
+    }
+
+    public IReadOnlyList<VehicleLinkStatus> GetAll() => [.. _connections.Values.Select(c => c.GetStatus())];
+
+    /// <summary>"How many links are in each state", read by the metrics collector (gauge gcs.links).</summary>
+    private void RegisterGauge()
+    {
+        if (Interlocked.Exchange(ref _gaugeRegistered, 1) == 0)
+        {
+            metrics.ObserveGauge(
+                "gcs.links",
+                () => GetAll().GroupBy(s => s.State).Select(g => new System.Diagnostics.Metrics.Measurement<int>(
+                    g.Count(), new KeyValuePair<string, object?>("state", g.Key.ToString()))),
+                "Vehicle links per state.");
         }
     }
 

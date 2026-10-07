@@ -13,6 +13,7 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
         builder.Property(m => m.Type).HasMaxLength(OutboxMessage.MaxTypeLength);
         builder.Property(m => m.Payload).HasColumnType("jsonb");
         builder.Property(m => m.LastError).HasMaxLength(OutboxMessage.MaxErrorLength);
+        builder.Property(m => m.TraceParent).HasMaxLength(OutboxMessage.MaxTraceParentLength);
 
         // The dispatcher only ever looks for unprocessed rows in time order; a partial index keeps that lookup
         // fast even when the table holds millions of already processed events.

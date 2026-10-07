@@ -2,6 +2,7 @@ using Asp.Versioning;
 using Gcs.Api;
 using Gcs.Api.Endpoints;
 using Gcs.Api.Middleware;
+using Gcs.Api.Observability;
 using Gcs.Api.Realtime;
 using Gcs.Api.Security;
 using Gcs.Application;
@@ -23,7 +24,11 @@ try
     builder.Services.AddSerilog((services, loggerConfiguration) => loggerConfiguration
         .ReadFrom.Configuration(builder.Configuration)
         .ReadFrom.Services(services)
-        .Enrich.FromLogContext());
+        .Enrich.FromLogContext()
+        .WriteToOtlpIfConfigured(builder.Configuration));
+
+    // Traces and metrics (OpenTelemetry); exported over OTLP when Observability:OtlpEndpoint is set.
+    builder.Services.AddGcsObservability(builder.Configuration);
 
     builder.Services.AddProblemDetails();
     builder.Services.AddOpenApi();

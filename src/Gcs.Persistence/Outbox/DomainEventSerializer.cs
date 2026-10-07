@@ -21,6 +21,7 @@ internal static class DomainEventSerializer
         Type = domainEvent.GetType().Name,
         Payload = JsonSerializer.Serialize(domainEvent, domainEvent.GetType(), Options),
         OccurredAt = domainEvent.OccurredAt,
+        TraceParent = System.Diagnostics.Activity.Current?.Id,
     };
 
     private static JsonSerializerOptions CreateOptions()

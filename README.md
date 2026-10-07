@@ -6,7 +6,10 @@ A modular, testable ground control station (GCS) for managing multiple UAVs over
 ASP.NET Core, PostgreSQL, RabbitMQ, SignalR and Avalonia UI. It is engineered like a defence-industry product:
 reliability, safety, security and observability come before features.
 
-> **Status: Phase 3, MAVLink.** The GCS talks MAVLink 2 to vehicles over UDP/TCP or to a built-in simulator: it tracks
+> **Status: Phase 4, telemetry.** Live telemetry is pushed to clients over SignalR (throttled to 5 Hz per vehicle),
+> sampled into PostgreSQL as history, and link events reach RabbitMQ through the outbox.
+>
+> Phase 3, MAVLink: The GCS talks MAVLink 2 to vehicles over UDP/TCP or to a built-in simulator: it tracks
 > link health with heartbeats, reconnects with bounded exponential backoff and decodes live telemetry (position,
 > attitude, speed, battery, GPS, arm state, flight mode). Vehicles are managed through a versioned REST API backed by
 > PostgreSQL. SignalR push and the desktop UI arrive in the phases listed in the [roadmap](#roadmap).
@@ -48,7 +51,9 @@ Avalonia GCS ──REST/SignalR──► Gcs.Api ──► Application ──►
 | UDP/TCP/in-process simulator transports, heartbeat, reconnect with backoff | ✅ Phase 3 |
 | Live telemetry decoding (position, attitude, speed, battery, GPS, mode) | ✅ Phase 3 |
 | Simulated PX4 vehicle (in-process and as a UDP container) | ✅ Phase 3 |
-| Real-time telemetry over SignalR | Planned (Phase 4) |
+| Real-time telemetry and link status over SignalR (throttled, per-vehicle groups) | ✅ Phase 4 |
+| Telemetry history: 1 Hz sampling, batched PostgreSQL writes, retention | ✅ Phase 4 |
+| Link events (connected, lost, faulted, disconnected) to RabbitMQ via outbox | ✅ Phase 4 |
 | Avalonia operator UI | Planned (Phase 5) |
 | Mission planner | Planned (Phase 6) |
 | Command system with authorization | Planned (Phase 7) |
@@ -64,7 +69,7 @@ Avalonia GCS ──REST/SignalR──► Gcs.Api ──► Application ──►
 | Backend | ASP.NET Core minimal APIs, API versioning (`Asp.Versioning`) |
 | Persistence | PostgreSQL 18, EF Core 10, Npgsql |
 | Messaging | RabbitMQ 4 (domain events, outbox) |
-| Real time | SignalR |
+| Real time | SignalR (`/hubs/telemetry`, `/hubs/vehicles`) |
 | Desktop | Avalonia UI 12, CommunityToolkit.Mvvm |
 | MAVLink | Own MAVLink 2 codec, golden-tested against pymavlink ([ADR-010](docs/adr/ADR-010-own-mavlink-codec.md)) |
 | Logging | Serilog |
@@ -137,6 +142,7 @@ user secrets (Development) → environment variables. Nested keys use `__` in en
 | `Outbox__Enabled`, `Outbox__PollingIntervalMilliseconds`, `Outbox__BatchSize` | Outbox dispatcher |
 | `RabbitMq__EventsExchange` | Topic exchange for domain events (default `gcs.events`) |
 | `Mavlink__HeartbeatTimeoutMilliseconds`, `Mavlink__MaxReconnectAttempts`, ... | Link timing, see [docs/mavlink.md](docs/mavlink.md#link-lifecycle) |
+| `Telemetry__BroadcastIntervalMilliseconds`, `Telemetry__HistoryRetentionDays`, ... | Push rate and history, see [docs/telemetry.md](docs/telemetry.md) |
 | `Serilog__MinimumLevel__Default` | Log level |
 
 Options are validated at startup; an invalid configuration stops the API immediately. Secrets are never committed:
@@ -187,6 +193,9 @@ In Development the OpenAPI document is served at `/openapi/v1.json`.
 | `GET /api/v1/vehicles/{id}/connection` | Link state, last heartbeat, reconnect attempts, fault reason, link quality |
 | `DELETE /api/v1/vehicles/{id}/connection` | Close the link → `204` |
 | `GET /api/v1/vehicles/{id}/telemetry` | Latest live telemetry snapshot (`404 telemetry.not_available` before any) |
+| `GET /api/v1/vehicles/{id}/telemetry/history?from=&to=&limit=` | Stored samples, oldest first (default: last 10 minutes) |
+| SignalR `/hubs/telemetry` | `SubscribeVehicle(id)` → `TelemetryUpdated` at up to 5 Hz ([docs/telemetry.md](docs/telemetry.md)) |
+| SignalR `/hubs/vehicles` | `LinkStatusChanged` for every vehicle |
 
 Example:
 
@@ -214,7 +223,7 @@ rate limiting, secure headers, HTTPS and audit logging arrive in Phase 8.
 | 1 | Project foundation ✅ |
 | 2 | Vehicle domain, persistence, CRUD API ✅ |
 | 3 | MAVLink abstraction, UDP transport, simulator, heartbeat, connection lifecycle ✅ |
-| 4 | Telemetry processing, latest state, SignalR |
+| 4 | Telemetry processing, latest state, SignalR ✅ |
 | 5 | Avalonia GCS |
 | 6 | Mission planner |
 | 7 | Command system |

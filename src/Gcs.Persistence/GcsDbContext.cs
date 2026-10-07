@@ -1,6 +1,7 @@
 using Gcs.Domain.Commands;
 using Gcs.Domain.Common;
 using Gcs.Domain.Missions;
+using Gcs.Domain.Users;
 using Gcs.Domain.Vehicles;
 using Gcs.Persistence.Outbox;
 using Gcs.Persistence.Telemetry;
@@ -21,6 +22,10 @@ public sealed class GcsDbContext(DbContextOptions<GcsDbContext> options) : DbCon
     public DbSet<Mission> Missions => Set<Mission>();
 
     public DbSet<CommandAuditEntry> CommandAudit => Set<CommandAuditEntry>();
+
+    public DbSet<User> Users => Set<User>();
+
+    internal DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 

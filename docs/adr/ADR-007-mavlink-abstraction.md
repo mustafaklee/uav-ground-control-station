@@ -1,6 +1,6 @@
 # ADR-007: MAVLink abstraction strategy and library choice
 
-* Status: Accepted
+* Status: Accepted (library choice superseded by [ADR-010](ADR-010-own-mavlink-codec.md))
 * Date: 2026-10-06
 
 ## Context

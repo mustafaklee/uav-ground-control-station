@@ -86,6 +86,28 @@ public sealed class FrameParserTests
     }
 
     [Fact]
+    public void Skipped_unknown_messages_do_not_count_as_lost_frames()
+    {
+        // A real PX4 interleaves many message types we do not decode. Their sequence numbers must still be tracked,
+        // otherwise every skipped frame shows up as a gap (PX4 SITL showed 76 % "loss" on a perfect link).
+        var parser = new MavlinkFrameParser();
+        var heartbeat = new HeartbeatMessage(MavType.Quadrotor, MavAutopilot.Px4, MavBaseMode.None, 0, MavState.Active);
+        var unknown = MavlinkCodec.Encode(heartbeat, sequence: 1, systemId: 1, componentId: 1);
+        unknown[7] = 0xEE; // message id 238, not registered
+
+        parser.Parse([
+            .. MavlinkCodec.Encode(heartbeat, sequence: 0, systemId: 1, componentId: 1),
+            .. unknown,
+            .. MavlinkCodec.Encode(heartbeat, sequence: 2, systemId: 1, componentId: 1),
+        ]);
+
+        parser.Statistics.FramesReceived.ShouldBe(2);
+        parser.Statistics.UnknownMessages.ShouldBe(1);
+        parser.Statistics.FramesLost.ShouldBe(0);
+        parser.Statistics.PacketLossRatio.ShouldBe(0);
+    }
+
+    [Fact]
     public void Mavlink_v1_frames_are_accepted()
     {
         // HEARTBEAT as MAVLink 1: STX 0xFE, len, seq, sys, comp, msgid, 9-byte payload, CRC.

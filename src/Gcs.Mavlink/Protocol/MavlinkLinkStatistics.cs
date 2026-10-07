@@ -21,9 +21,15 @@ public sealed class MavlinkLinkStatistics
 
     public long BytesDiscarded { get; internal set; }
 
-    /// <summary>Lost / (received + lost), between 0 and 1.</summary>
-    public double PacketLossRatio =>
-        FramesReceived + FramesLost == 0 ? 0 : FramesLost / (double)(FramesReceived + FramesLost);
+    /// <summary>Lost / (arrived + lost), between 0 and 1. Arrived frames include the skipped unknown ones.</summary>
+    public double PacketLossRatio
+    {
+        get
+        {
+            var total = FramesReceived + UnknownMessages + FramesLost;
+            return total == 0 ? 0 : FramesLost / (double)total;
+        }
+    }
 
     internal void TrackSequence(byte systemId, byte componentId, byte sequence)
     {

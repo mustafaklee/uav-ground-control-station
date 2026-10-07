@@ -9,7 +9,8 @@ namespace Gcs.Mavlink.Protocol;
 /// </summary>
 /// <remarks>
 /// Not thread safe: one parser per link, fed by that link's receive loop.
-/// Unknown message ids cannot be CRC checked (their CRC_EXTRA is unknown) and are skipped as a whole frame.
+/// Unknown message ids cannot be CRC checked (their CRC_EXTRA is unknown) and are skipped as a whole frame. Their
+/// sequence numbers are still tracked, so skipped frames are not mistaken for lost ones.
 /// </remarks>
 public sealed class MavlinkFrameParser
 {
@@ -105,7 +106,10 @@ public sealed class MavlinkFrameParser
 
         if (!MavlinkMessageRegistry.TryGet(messageId, out var info))
         {
+            // The frame did arrive, so its sequence number still counts. Otherwise every message we do not decode
+            // would look like a lost frame (a real PX4 sends dozens of message types we do not need).
             Statistics.UnknownMessages++;
+            Statistics.TrackSequence(systemId, componentId, sequence);
             consumed = frameLength;
             return ReadResult.Skipped;
         }

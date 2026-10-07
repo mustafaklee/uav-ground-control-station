@@ -1,6 +1,7 @@
 using Gcs.Domain.Common;
 using Gcs.Domain.Vehicles;
 using Gcs.Persistence.Outbox;
+using Gcs.Persistence.Telemetry;
 using Microsoft.EntityFrameworkCore;
 
 namespace Gcs.Persistence;
@@ -16,6 +17,8 @@ public sealed class GcsDbContext(DbContextOptions<GcsDbContext> options) : DbCon
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
 
     internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+
+    internal DbSet<TelemetrySampleRecord> TelemetrySamples => Set<TelemetrySampleRecord>();
 
     /// <summary>
     /// Before saving, every domain event raised by a tracked aggregate is turned into an outbox row.

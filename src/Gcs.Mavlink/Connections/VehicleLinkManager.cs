@@ -16,6 +16,7 @@ namespace Gcs.Mavlink.Connections;
 internal sealed class VehicleLinkManager(
     IMavlinkTransportFactory transports,
     ITelemetrySink telemetry,
+    IVehicleLinkEventSink events,
     IOptions<MavlinkConnectionOptions> options,
     TimeProvider time,
     ILoggerFactory loggers) : IVehicleLinkManager, IAsyncDisposable
@@ -48,7 +49,7 @@ internal sealed class VehicleLinkManager(
             }
 
             var connection = new MavlinkConnection(
-                target, transports, telemetry, options.Value, time, loggers.CreateLogger<MavlinkConnection>());
+                target, transports, telemetry, events, options.Value, time, loggers.CreateLogger<MavlinkConnection>());
             _connections[target.VehicleId] = connection;
             connection.Start();
             return Result.Success();

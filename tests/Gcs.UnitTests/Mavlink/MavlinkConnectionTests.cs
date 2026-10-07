@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Gcs.Application.Abstractions;
+using Gcs.Domain.Commands;
 using Gcs.Domain.Telemetry;
 using Gcs.Domain.Vehicles;
 using Gcs.Domain.Vehicles.Connections;
@@ -177,6 +178,88 @@ public sealed class MavlinkConnectionTests : IAsyncDisposable
             (ConnectionState.Connected, ConnectionState.Reconnecting),
             (ConnectionState.Reconnecting, ConnectionState.Disconnected),
         ]);
+    }
+
+    [Fact]
+    public async Task A_command_is_not_sent_without_a_connected_link()
+    {
+        var delivery = await _connection.SendCommandAsync(VehicleCommand.Arm(), Ct);
+
+        delivery.Status.ShouldBe(CommandDeliveryStatus.NotConnected);
+    }
+
+    [Fact]
+    public async Task The_same_command_is_refused_while_the_first_one_still_waits_for_its_ack()
+    {
+        await ConnectAsync();
+
+        var first = _connection.SendCommandAsync(VehicleCommand.Arm(), Ct);
+        var duplicate = await _connection.SendCommandAsync(VehicleCommand.Arm(), Ct);
+
+        // DISARM is the same MAV_CMD (400) as ARM: its ACK could not be told apart, so it waits its turn too.
+        var disarm = await _connection.SendCommandAsync(VehicleCommand.Disarm(), Ct);
+        duplicate.Status.ShouldBe(CommandDeliveryStatus.AlreadyInFlight);
+        disarm.Status.ShouldBe(CommandDeliveryStatus.AlreadyInFlight);
+        first.IsCompleted.ShouldBeFalse();
+
+        await SendFromVehicleAsync(new CommandAckMessage(MavCmd.ComponentArmDisarm, MavResult.Accepted));
+        (await first).ShouldBe(new CommandDelivery(CommandDeliveryStatus.Accepted, 1, null));
+
+        // Once answered, the same command may be sent again.
+        var again = _connection.SendCommandAsync(VehicleCommand.Arm(), Ct);
+        await SendFromVehicleAsync(new CommandAckMessage(MavCmd.ComponentArmDisarm, MavResult.Accepted));
+        (await again).Status.ShouldBe(CommandDeliveryStatus.Accepted);
+    }
+
+    [Fact]
+    public async Task A_different_command_is_not_blocked_by_one_in_flight()
+    {
+        await ConnectAsync();
+
+        var modeChange = _connection.SendCommandAsync(VehicleCommand.SetMode("POSCTL").Value, Ct);
+        var rtl = _connection.SendCommandAsync(VehicleCommand.ReturnToLaunch(), Ct);
+        await SendFromVehicleAsync(new CommandAckMessage(MavCmd.NavReturnToLaunch, MavResult.Accepted));
+
+        (await rtl).Status.ShouldBe(CommandDeliveryStatus.Accepted);
+        modeChange.IsCompleted.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task An_unanswered_command_times_out_after_every_retry_has_had_its_full_timeout()
+    {
+        await ConnectAsync();
+
+        // Keep the link alive (heartbeats) while the autopilot ignores the command.
+        var command = _connection.SendCommandAsync(VehicleCommand.ReturnToLaunch(), Ct);
+        var elapsed = TimeSpan.Zero;
+        while (!command.IsCompleted && elapsed < TimeSpan.FromSeconds(30))
+        {
+            await SendFromVehicleAsync(VehicleHeartbeat());
+            await AdvanceAsync(TimeSpan.FromMilliseconds(500));
+            elapsed += TimeSpan.FromMilliseconds(500);
+        }
+
+        var delivery = await command;
+        delivery.Status.ShouldBe(CommandDeliveryStatus.TimedOut);
+        delivery.Attempts.ShouldBe(1 + _options.CommandMaxRetries);
+        elapsed.ShouldBeGreaterThanOrEqualTo(TimeSpan.FromMilliseconds(_options.CommandAckTimeoutMilliseconds * (1 + _options.CommandMaxRetries)));
+        _connection.State.ShouldBe(ConnectionState.Connected);
+    }
+
+    [Fact]
+    public async Task Px4_takeoff_needs_the_home_altitude_from_position_telemetry()
+    {
+        await ConnectAsync();
+        var takeoff = VehicleCommand.Takeoff(30).Value;
+
+        var before = await _connection.SendCommandAsync(takeoff, Ct);
+        await SendFromVehicleAsync(new GlobalPositionIntMessage(0, 399250000, 328540000, 938_000, 0, 0, 0, 0, 0));
+        await EventuallyAsync(() => _sink.Updates.Any(u => u.Position is not null));
+        var after = _connection.SendCommandAsync(takeoff, Ct);
+        await SendFromVehicleAsync(new CommandAckMessage(MavCmd.NavTakeoff, MavResult.Accepted));
+
+        before.Status.ShouldBe(CommandDeliveryStatus.Unsupported);
+        (await after).Status.ShouldBe(CommandDeliveryStatus.Accepted);
     }
 
     public async ValueTask DisposeAsync() => await _connection.DisposeAsync();

@@ -37,20 +37,95 @@ public sealed class SimulatedVehicleTests
     }
 
     [Fact]
-    public void Arm_and_disarm_commands_are_acknowledged()
+    public void Disarm_in_flight_is_denied_and_commands_for_other_systems_are_ignored()
     {
         var vehicle = new SimulatedVehicle(Options);
 
-        var disarm = vehicle.Handle(new CommandLongMessage(7, 1, MavCmd.ComponentArmDisarm, 0, Param1: 0));
-        var other = vehicle.Handle(new CommandLongMessage(7, 1, MavCmd.NavTakeoff, 0));
-        var notForMe = vehicle.Handle(new CommandLongMessage(8, 1, MavCmd.ComponentArmDisarm, 0, Param1: 1));
+        var disarm = vehicle.Handle(Command(MavCmd.ComponentArmDisarm, param1: 0));
+        var notForMe = vehicle.Handle(new CommandLongMessage(8, 1, MavCmd.ComponentArmDisarm, 0, Param1: 0));
+        var unknown = vehicle.Handle(Command(MavCmd.DoChangeSpeed));
 
-        disarm.ShouldBe(new CommandAckMessage(MavCmd.ComponentArmDisarm, MavResult.Accepted));
-        vehicle.IsArmed.ShouldBeFalse();
-        vehicle.Heartbeat().IsArmed.ShouldBeFalse();
-        other.ShouldBe(new CommandAckMessage(MavCmd.NavTakeoff, MavResult.Unsupported));
+        disarm.ShouldBe(new CommandAckMessage(MavCmd.ComponentArmDisarm, MavResult.Denied));
+        vehicle.IsArmed.ShouldBeTrue();
         notForMe.ShouldBeNull();
+        unknown.ShouldBe(new CommandAckMessage(MavCmd.DoChangeSpeed, MavResult.Unsupported));
     }
+
+    [Fact]
+    public void A_full_flight_arm_takeoff_return_and_automatic_disarm_after_landing()
+    {
+        var vehicle = new SimulatedVehicle(Options with { StartAirborne = false });
+        vehicle.Phase.ShouldBe(SimulatedFlightPhase.OnGround);
+        vehicle.Heartbeat().SystemStatus.ShouldBe(MavState.Standby);
+
+        // TAKEOFF before ARM is refused, as on a real autopilot.
+        Ack(vehicle, Command(MavCmd.NavTakeoff, param7: (float)(Options.HomeAltitudeMslMetres + 30))).ShouldBe(MavResult.Denied);
+        Ack(vehicle, Command(MavCmd.ComponentArmDisarm, param1: 1)).ShouldBe(MavResult.Accepted);
+        Ack(vehicle, Command(MavCmd.NavTakeoff, param7: (float)(Options.HomeAltitudeMslMetres + 30))).ShouldBe(MavResult.Accepted);
+        vehicle.Heartbeat().CustomMode.ShouldBe(Px4Mode(4, 2)); // AUTO.TAKEOFF
+
+        Run(vehicle, TimeSpan.FromSeconds(15));
+        vehicle.Phase.ShouldBe(SimulatedFlightPhase.Hovering);
+        vehicle.RelativeAltitudeMetres.ShouldBe(30);
+        vehicle.Heartbeat().CustomMode.ShouldBe(Px4Mode(4, 3)); // AUTO.LOITER
+
+        Ack(vehicle, Command(MavCmd.NavReturnToLaunch)).ShouldBe(MavResult.Accepted);
+        vehicle.Heartbeat().CustomMode.ShouldBe(Px4Mode(4, 5)); // AUTO.RTL
+        Run(vehicle, TimeSpan.FromSeconds(30));
+
+        vehicle.Phase.ShouldBe(SimulatedFlightPhase.OnGround);
+        vehicle.RelativeAltitudeMetres.ShouldBe(0);
+        vehicle.IsArmed.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Land_from_the_orbit_descends_and_set_mode_changes_the_reported_mode()
+    {
+        var vehicle = new SimulatedVehicle(Options);
+
+        Ack(vehicle, Command(MavCmd.DoSetMode, param1: 1, param2: 3)).ShouldBe(MavResult.Accepted); // POSCTL
+        vehicle.Heartbeat().CustomMode.ShouldBe(Px4Mode(3, 0));
+        vehicle.Phase.ShouldBe(SimulatedFlightPhase.Hovering);
+        Ack(vehicle, Command(MavCmd.DoSetMode, param1: 1, param2: 42)).ShouldBe(MavResult.Denied);
+
+        Ack(vehicle, Command(MavCmd.NavLand)).ShouldBe(MavResult.Accepted);
+        Run(vehicle, TimeSpan.FromSeconds(10));
+        vehicle.Telemetry().OfType<GlobalPositionIntMessage>().Single().VelocityDownCmPerSecond.ShouldBe((short)200);
+
+        Run(vehicle, TimeSpan.FromSeconds(60));
+        vehicle.Phase.ShouldBe(SimulatedFlightPhase.OnGround);
+        vehicle.IsArmed.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Injected_faults_drop_or_ignore_commands_but_still_record_them()
+    {
+        var vehicle = new SimulatedVehicle(Options) { DropNextCommands = 1 };
+
+        vehicle.Handle(Command(MavCmd.NavLand)).ShouldBeNull();
+        vehicle.Phase.ShouldBe(SimulatedFlightPhase.Orbiting);
+        vehicle.IgnoreCommands = true;
+        vehicle.Handle(Command(MavCmd.NavLand)).ShouldBeNull();
+
+        vehicle.CommandsReceived.Count.ShouldBe(2);
+        vehicle.Phase.ShouldBe(SimulatedFlightPhase.Orbiting);
+    }
+
+    private static CommandLongMessage Command(MavCmd command, float param1 = 0, float param2 = 0, float param7 = 0) =>
+        new(Options.SystemId, 1, command, 0, Param1: param1, Param2: param2, Param7: param7);
+
+    private static MavResult Ack(SimulatedVehicle vehicle, CommandLongMessage command) =>
+        vehicle.Handle(command).ShouldBeOfType<CommandAckMessage>().Result;
+
+    private static void Run(SimulatedVehicle vehicle, TimeSpan duration)
+    {
+        for (var t = TimeSpan.Zero; t < duration; t += TimeSpan.FromMilliseconds(100))
+        {
+            vehicle.Step(TimeSpan.FromMilliseconds(100));
+        }
+    }
+
+    private static uint Px4Mode(byte main, byte sub) => ((uint)main << 16) | ((uint)sub << 24);
 
     private static double DistanceMetres(double lat1, double lon1, double lat2, double lon2)
     {

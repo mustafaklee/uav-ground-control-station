@@ -32,6 +32,13 @@ public sealed class GcsApiFactory : WebApplicationFactory<Program>, IAsyncLifeti
         builder.UseSetting("ConnectionStrings:Postgres", _postgres.GetConnectionString());
         builder.UseSetting("Persistence:ApplyMigrationsOnStartup", "true");
         builder.UseSetting("Outbox:PollingIntervalMilliseconds", "200");
+
+        // Short link timings so loss detection and bounded retries finish within seconds.
+        builder.UseSetting("Mavlink:HeartbeatTimeoutMilliseconds", "1500");
+        builder.UseSetting("Mavlink:ConnectTimeoutMilliseconds", "5000");
+        builder.UseSetting("Mavlink:MaxReconnectAttempts", "2");
+        builder.UseSetting("Mavlink:ReconnectBaseDelayMilliseconds", "200");
+        builder.UseSetting("Mavlink:WatchdogIntervalMilliseconds", "100");
         builder.UseSetting("RabbitMq:HostName", rabbitUri.Host);
         builder.UseSetting("RabbitMq:Port", rabbitUri.Port.ToString(System.Globalization.CultureInfo.InvariantCulture));
         builder.UseSetting("RabbitMq:UserName", Uri.UnescapeDataString(credentials[0]));

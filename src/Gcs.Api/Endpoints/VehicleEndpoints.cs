@@ -31,6 +31,11 @@ internal static class VehicleEndpoints
         group.MapPut("/{id:guid}", UpdateAsync).WithName("UpdateVehicle");
         group.MapDelete("/{id:guid}", RetireAsync).WithName("RetireVehicle");
 
+        group.MapPost("/{id:guid}/connection", ConnectAsync).WithName("ConnectVehicle");
+        group.MapDelete("/{id:guid}/connection", DisconnectAsync).WithName("DisconnectVehicle");
+        group.MapGet("/{id:guid}/connection", GetConnectionAsync).WithName("GetVehicleConnection");
+        group.MapGet("/{id:guid}/telemetry", GetTelemetryAsync).WithName("GetVehicleTelemetry");
+
         return endpoints;
     }
 
@@ -126,5 +131,32 @@ internal static class VehicleEndpoints
 
         var result = await handler.HandleAsync(id, expectedVersion, cancellationToken);
         return result.IsSuccess ? TypedResults.NoContent() : result.Error.ToProblem();
+    }
+
+    /// <summary>Connecting happens in the background: 202 Accepted, then poll the status (SignalR push arrives in Phase 4).</summary>
+    private static async Task<IResult> ConnectAsync(Guid id, ConnectVehicleHandler handler, CancellationToken cancellationToken)
+    {
+        var result = await handler.HandleAsync(id, cancellationToken);
+        return result.IsSuccess
+            ? TypedResults.Accepted($"/api/v1/vehicles/{id}/connection", result.Value)
+            : result.Error.ToProblem();
+    }
+
+    private static async Task<IResult> DisconnectAsync(Guid id, DisconnectVehicleHandler handler, CancellationToken cancellationToken)
+    {
+        var result = await handler.HandleAsync(id, cancellationToken);
+        return result.IsSuccess ? TypedResults.NoContent() : result.Error.ToProblem();
+    }
+
+    private static async Task<IResult> GetConnectionAsync(Guid id, GetVehicleLinkHandler handler, CancellationToken cancellationToken)
+    {
+        var result = await handler.HandleAsync(id, cancellationToken);
+        return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
+    }
+
+    private static async Task<IResult> GetTelemetryAsync(Guid id, GetLatestTelemetryHandler handler, CancellationToken cancellationToken)
+    {
+        var result = await handler.HandleAsync(id, cancellationToken);
+        return result.IsSuccess ? TypedResults.Ok(result.Value) : result.Error.ToProblem();
     }
 }

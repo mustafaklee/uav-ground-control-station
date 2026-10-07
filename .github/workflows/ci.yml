@@ -85,6 +85,17 @@ jobs:
           cache-from: type=gha,scope=migrator
           cache-to: type=gha,mode=max,scope=migrator
 
+      - name: Build simulator image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Gcs.Simulation.Dockerfile
+          tags: gcs-simulator:local
+          load: true
+          push: false
+          cache-from: type=gha,scope=simulator
+          cache-to: type=gha,mode=max,scope=simulator
+
       - name: Start stack and wait until healthy
         run: docker compose up --detach --wait --wait-timeout 180 --no-build
 
@@ -96,8 +107,25 @@ jobs:
         run: |
           curl --fail --silent --show-error -X POST http://127.0.0.1:8080/api/v1/vehicles \
             -H "Content-Type: application/json" \
-            -d '{"callsign":"CI-01","mavlinkSystemId":1,"autopilot":"Px4","type":"Multirotor","connection":{"transport":"Simulator"}}'
+            -d '{"callsign":"CI-01","mavlinkSystemId":9,"autopilot":"Px4","type":"Multirotor","connection":{"transport":"Simulator"}}'
           curl --fail --silent --show-error "http://127.0.0.1:8080/api/v1/vehicles?search=CI-01" | grep -q '"totalCount":1'
+
+      # The simulator container sends MAVLink to the API over UDP; the API must connect and receive telemetry.
+      - name: Connect to the simulated vehicle over MAVLink/UDP
+        run: |
+          id=$(curl --fail --silent --show-error -X POST http://127.0.0.1:8080/api/v1/vehicles \
+            -H "Content-Type: application/json" \
+            -d '{"callsign":"SIM-01","mavlinkSystemId":1,"autopilot":"Px4","type":"Multirotor","connection":{"transport":"Udp","host":"0.0.0.0","port":14550}}' \
+            | sed -E 's/.*"id":"([^"]+)".*/\1/')
+          curl --fail --silent --show-error -X POST "http://127.0.0.1:8080/api/v1/vehicles/$id/connection" > /dev/null
+          for i in $(seq 1 30); do
+            if curl --silent "http://127.0.0.1:8080/api/v1/vehicles/$id/connection" | grep -q '"state":"Connected"'; then
+              curl --fail --silent --show-error "http://127.0.0.1:8080/api/v1/vehicles/$id/telemetry"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Vehicle did not connect within 30 s" && exit 1
 
       - name: Show logs on failure
         if: failure()

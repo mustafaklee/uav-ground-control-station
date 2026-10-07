@@ -89,6 +89,19 @@ POST /api/v1/vehicles
 * Retiring is a soft delete; partial unique indexes reserve callsign and MAVLink system id only for active vehicles.
 * Concurrency: the `version` column is an EF Core concurrency token; clients send it back in `If-Match`.
 
+## MAVLink link (Phase 3)
+
+```
+POST /api/v1/vehicles/{id}/connection
+  → ConnectVehicleHandler      vehicle must exist and be active
+  → IVehicleLinkManager        (port) → VehicleLinkManager in Gcs.Mavlink, one MavlinkConnection per vehicle
+  → MavlinkConnection          transport session + GCS heartbeat + watchdog + bounded backoff
+  → TelemetryTranslator        MAVLink units → domain telemetry → ITelemetrySink (Gcs.Telemetry latest-state store)
+GET /api/v1/vehicles/{id}/telemetry → ITelemetryService → latest snapshot (memory, no database)
+```
+
+See [mavlink.md](mavlink.md) and [networking.md](networking.md).
+
 ## Cross-cutting concerns
 
 | Concern | Implementation |
@@ -110,7 +123,8 @@ POST /api/v1/vehicles
 | Transient DB error | EF Core retries (configurable `Persistence:MaxRetryCount`) | n/a |
 | Two operators edit the same vehicle | The second save gets `412 Precondition Failed`; nothing is overwritten | n/a |
 | Same request sent twice | Register: second gets `409` (callsign in use). Retire: idempotent `204` | Idempotency keys for commands (Phase 7) |
-| Vehicle link lost | n/a | Connection state machine with heartbeat timeout and exponential backoff reconnect (Phase 3) |
+| Vehicle link lost | Reconnecting after 3 s without heartbeat, bounded exponential backoff with jitter, Faulted after max attempts | n/a |
+| Vehicle never answers | Faulted after the connect timeout with a readable reason; operator retries | n/a |
 
 ## Related decisions
 

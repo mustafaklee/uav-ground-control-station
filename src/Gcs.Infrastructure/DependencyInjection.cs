@@ -1,6 +1,8 @@
 using Gcs.Infrastructure.Outbox;
+using Gcs.Mavlink;
 using Gcs.Messaging;
 using Gcs.Persistence;
+using Gcs.Telemetry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,6 +18,8 @@ public static class DependencyInjection
     {
         services.AddPersistence(configuration);
         services.AddMessaging();
+        services.AddTelemetry();
+        services.AddMavlink();
 
         services.AddOptions<OutboxDispatcherOptions>()
             .BindConfiguration(OutboxDispatcherOptions.SectionName)

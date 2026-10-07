@@ -21,4 +21,12 @@ internal sealed class OutboxMessage
     public int Attempts { get; set; }
 
     public string? LastError { get; set; }
+
+    /// <summary>
+    /// W3C <c>traceparent</c> of the operation that raised the event, e.g. the HTTP request that registered a vehicle.
+    /// The publish later continues that trace, although it runs seconds later on a background thread.
+    /// </summary>
+    public string? TraceParent { get; init; }
+
+    public const int MaxTraceParentLength = 64;
 }

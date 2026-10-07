@@ -102,6 +102,26 @@ GET /api/v1/vehicles/{id}/telemetry → ITelemetryService → latest snapshot (m
 
 See [mavlink.md](mavlink.md) and [networking.md](networking.md).
 
+## Telemetry (Phase 4)
+
+Latest state in memory, throttled SignalR push, 1 Hz sampled history in PostgreSQL, link events via the outbox.
+Every hand-off between the vehicle link and slower consumers goes through a bounded queue or a timer, so nothing
+downstream can stall reception. Details: [telemetry.md](telemetry.md); Redis decision: [ADR-011](adr/ADR-011-redis-evaluation-phase-4.md).
+
+## Desktop client (Phase 5)
+
+```
+MainWindow (XAML, bindings)            MapControl (Mapsui) ← VehicleMap: tiles, trail, home, heading arrow
+   │ DataContext                              ▲ position/heading changes
+MainWindowViewModel ── TelemetryViewModel ───┘   (formatting, "—" for unknown values)
+   ├── IGcsApiClient   → REST  /api/v1/vehicles...
+   ├── IRealtimeClient → SignalR /hubs/telemetry (subscribe per vehicle), /hubs/vehicles (link status)
+   └── IUiDispatcher   → marshal background events to the UI thread
+```
+
+The client references only `Gcs.Contracts`. View models are tested with fakes; the view only binds.
+Map and Avalonia version decision: [ADR-012](adr/ADR-012-desktop-map-and-avalonia-version.md).
+
 ## Cross-cutting concerns
 
 | Concern | Implementation |
@@ -125,6 +145,8 @@ See [mavlink.md](mavlink.md) and [networking.md](networking.md).
 | Same request sent twice | Register: second gets `409` (callsign in use). Retire: idempotent `204` | Idempotency keys for commands (Phase 7) |
 | Vehicle link lost | Reconnecting after 3 s without heartbeat, bounded exponential backoff with jitter, Faulted after max attempts | n/a |
 | Vehicle never answers | Faulted after the connect timeout with a readable reason; operator retries | n/a |
+| PostgreSQL down during flight | Live telemetry unaffected; history queued in memory (bounded, drop oldest) and written when back | n/a |
+| Slow operator client | Its pushes lag; other clients and MAVLink reception unaffected | n/a |
 
 ## Related decisions
 

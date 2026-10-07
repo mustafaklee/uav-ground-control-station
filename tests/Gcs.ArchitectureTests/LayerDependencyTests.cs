@@ -59,8 +59,10 @@ public sealed class LayerDependencyTests
     [Fact]
     public void Desktop_knows_only_public_contracts() =>
         AssertNoDependency(Layers.DesktopAssembly,
+        [
             Layers.Domain, Layers.Application, Layers.Mavlink, Layers.Telemetry, Layers.Messaging, Layers.Persistence, Layers.Infrastructure, Layers.Simulation, Layers.Api,
-            Layers.EntityFrameworkCore, Layers.Npgsql, Layers.RabbitMq, Layers.AspNetCore);
+            Layers.EntityFrameworkCore, Layers.Npgsql, Layers.RabbitMq, .. Layers.AspNetCoreServer,
+        ]);
 
     [Fact]
     public void Simulation_does_not_depend_on_the_backend() =>

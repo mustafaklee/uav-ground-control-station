@@ -111,6 +111,31 @@ public sealed class VehicleTests
         vehicle.IsRetired.ShouldBeFalse();
     }
 
+    [Fact]
+    public void Requesting_and_releasing_a_link_does_not_change_the_registration_version()
+    {
+        var vehicle = NewVehicle();
+
+        vehicle.RequestLink().IsSuccess.ShouldBeTrue();
+        vehicle.LinkRequested.ShouldBeTrue();
+        vehicle.ReleaseLink();
+
+        vehicle.LinkRequested.ShouldBeFalse();
+        vehicle.Version.ShouldBe(Vehicle.InitialVersion);
+    }
+
+    [Fact]
+    public void Retiring_clears_the_link_request_and_a_retired_vehicle_cannot_request_one()
+    {
+        var vehicle = NewVehicle();
+        vehicle.RequestLink();
+
+        vehicle.Retire(null, T1);
+
+        vehicle.LinkRequested.ShouldBeFalse();
+        vehicle.RequestLink().Error.ShouldBe(VehicleErrors.Retired);
+    }
+
     private static Vehicle NewVehicle() => Vehicle.Register(
         Callsign("UAV-01"),
         SystemId(1),

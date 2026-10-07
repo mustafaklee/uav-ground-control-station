@@ -91,6 +91,27 @@ public sealed class VehicleLinkTests(GcsApiFactory factory)
     }
 
     [Fact]
+    public async Task Links_left_connected_are_restored_after_the_api_restarts()
+    {
+        var vehicle = await RegisterAsync(new ConnectionSettingsDto("Simulator"));
+        await _client.PostAsync(new Uri($"{BasePath}/{vehicle.Id}/connection", UriKind.Relative), null, Ct);
+        await WaitForStateAsync(vehicle.Id, "Connected");
+
+        // A second host on the same database starts with empty link state, exactly like the API after a restart.
+        await using var restarted = factory.WithWebHostBuilder(_ => { });
+        using var restartedClient = restarted.CreateClient();
+
+        var link = await Eventually.GetAsync(
+            async () => (await restartedClient.GetFromJsonAsync<VehicleLinkResponse>($"{BasePath}/{vehicle.Id}/connection", Ct))!,
+            l => l.State == "Connected",
+            LinkTimeout,
+            "the restarted API restored the link");
+        link.State.ShouldBe("Connected");
+
+        await _client.DeleteAsync(new Uri($"{BasePath}/{vehicle.Id}/connection", UriKind.Relative), Ct);
+    }
+
+    [Fact]
     public async Task Connecting_twice_is_rejected_while_the_link_is_active()
     {
         var vehicle = await RegisterAsync(new ConnectionSettingsDto("Simulator"));

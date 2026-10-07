@@ -17,7 +17,9 @@ public static class DependencyInjection
 
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<IMavlinkTransportFactory, MavlinkTransportFactory>();
-        services.AddSingleton<IVehicleLinkManager, VehicleLinkManager>();
+        services.AddSingleton<VehicleLinkManager>();
+        services.AddSingleton<IVehicleLinkManager>(sp => sp.GetRequiredService<VehicleLinkManager>());
+        services.AddSingleton<IVehicleMissionTransfer>(sp => sp.GetRequiredService<VehicleLinkManager>());
         return services;
     }
 }

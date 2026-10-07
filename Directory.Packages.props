@@ -38,11 +38,16 @@
     <PackageVersion Include="RabbitMQ.Client" Version="7.2.2" />
   </ItemGroup>
 
+  <!-- Avalonia 11.3 (not 12): Mapsui, the map control, is built and tested against 11.3. See docs/adr/ADR-012. -->
   <ItemGroup Label="Desktop">
-    <PackageVersion Include="Avalonia" Version="12.1.3" />
-    <PackageVersion Include="Avalonia.Desktop" Version="12.1.3" />
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.3" />
+    <PackageVersion Include="Avalonia" Version="11.3.22" />
+    <PackageVersion Include="Avalonia.Desktop" Version="11.3.22" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.22" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.3.22" />
+    <PackageVersion Include="Avalonia.Headless" Version="11.3.22" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="Mapsui.Avalonia" Version="5.1.0" />
+    <PackageVersion Include="Mapsui.Nts" Version="5.1.0" />
   </ItemGroup>
 
   <ItemGroup Label="Testing">
@@ -52,6 +57,7 @@
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.12" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />
     <PackageVersion Include="Testcontainers.RabbitMq" Version="4.15.0" />
   </ItemGroup>

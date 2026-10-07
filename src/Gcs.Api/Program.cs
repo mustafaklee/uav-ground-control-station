@@ -2,7 +2,10 @@ using Asp.Versioning;
 using Gcs.Api;
 using Gcs.Api.Endpoints;
 using Gcs.Api.Middleware;
+using Gcs.Api.Realtime;
 using Gcs.Application;
+using Gcs.Application.Abstractions;
+using Gcs.Contracts.Realtime;
 using Gcs.Infrastructure;
 using Serilog;
 
@@ -34,6 +37,10 @@ try
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
 
+    // Live push to operator clients. Registered after AddInfrastructure so it replaces the no-op publisher.
+    builder.Services.AddSignalR();
+    builder.Services.AddSingleton<ILiveUpdatePublisher, SignalRLiveUpdatePublisher>();
+
     var app = builder.Build();
 
     app.UseMiddleware<CorrelationIdMiddleware>();
@@ -49,6 +56,9 @@ try
     app.MapHealthEndpoints();
     app.MapSystemEndpoints();
     app.MapVehicleEndpoints();
+    app.MapMissionEndpoints();
+    app.MapHub<TelemetryHub>(RealtimeRoutes.TelemetryHub);
+    app.MapHub<VehiclesHub>(RealtimeRoutes.VehiclesHub);
 
     await app.Services.InitializeInfrastructureAsync(app.Lifetime.ApplicationStopping);
     await app.RunAsync();

@@ -1,6 +1,8 @@
 using Gcs.Application;
 using Gcs.Application.Abstractions;
+using Gcs.Persistence.Missions;
 using Gcs.Persistence.Outbox;
+using Gcs.Persistence.Telemetry;
 using Gcs.Persistence.Vehicles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -39,7 +41,11 @@ public static partial class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IVehicleRepository, VehicleRepository>();
         services.AddScoped<IVehicleQueries, VehicleQueries>();
+        services.AddScoped<IMissionRepository, MissionRepository>();
+        services.AddScoped<IMissionQueries, MissionQueries>();
         services.AddScoped<IOutboxStore, OutboxStore>();
+        services.AddScoped<IEventOutbox, EventOutbox>();
+        services.AddScoped<ITelemetryHistoryStore, TelemetryHistoryStore>();
 
         services.AddHealthChecks()
             .AddDbContextCheck<GcsDbContext>(HealthCheckName, tags: [HealthCheckTags.Ready]);

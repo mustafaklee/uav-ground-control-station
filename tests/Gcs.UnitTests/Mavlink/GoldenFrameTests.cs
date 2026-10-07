@@ -48,7 +48,26 @@ public sealed class GoldenFrameTests
             GoldenFrames.CommandLong
         },
         { "COMMAND_ACK (accepted)", 8, new CommandAckMessage(MavCmd.ComponentArmDisarm, MavResult.Accepted), GoldenFrames.CommandAck },
+        { "MISSION_REQUEST_LIST", 9, new MissionRequestListMessage(1, 1), GoldenFrames.MissionRequestList },
+        { "MISSION_COUNT", 10, new MissionCountMessage(1, 1, 5), GoldenFrames.MissionCount },
+        { "MISSION_REQUEST_INT", 11, new MissionRequestIntMessage(255, 190, 3), GoldenFrames.MissionRequestInt },
+        {
+            "MISSION_ITEM_INT (waypoint, yaw unset)", 12,
+            new MissionItemIntMessage(1, 1, 2, MavFrame.GlobalRelativeAltInt, MavCmd.NavWaypoint, 0, 1,
+                5f, 2f, 0f, PythonNaN, 399255330, 328662870, 120f),
+            GoldenFrames.MissionItemInt
+        },
+        { "MISSION_ACK (accepted)", 13, new MissionAckMessage(255, 190, MavMissionResult.Accepted), GoldenFrames.MissionAck },
+        { "MISSION_ACK (invalid sequence)", 14, new MissionAckMessage(255, 190, MavMissionResult.InvalidSequence), GoldenFrames.MissionAckInvalidSequence },
+        { "MISSION_CURRENT", 15, new MissionCurrentMessage(2), GoldenFrames.MissionCurrent },
+        { "MISSION_ITEM_REACHED", 16, new MissionItemReachedMessage(2), GoldenFrames.MissionItemReached },
     };
+
+    /// <summary>
+    /// Python packs float('nan') as 0x7FC00000; C#'s float.NaN is 0xFFC00000. Both are valid "unset" values for autopilots,
+    /// but a byte-exact comparison needs the same bits.
+    /// </summary>
+    private static readonly float PythonNaN = BitConverter.Int32BitsToSingle(0x7FC00000);
 
     [Theory]
     [MemberData(nameof(Cases))]

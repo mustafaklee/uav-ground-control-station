@@ -15,4 +15,8 @@
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Gcs.UnitTests" />
+  </ItemGroup>
+
 </Project>

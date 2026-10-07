@@ -24,6 +24,46 @@ namespace Gcs.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Gcs.Domain.Missions.Mission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_missions");
+
+                    b.HasIndex("UpdatedAt")
+                        .HasDatabaseName("ix_missions_updated_at");
+
+                    b.ToTable("missions", "gcs");
+                });
+
             modelBuilder.Entity("Gcs.Domain.Vehicles.Vehicle", b =>
                 {
                     b.Property<Guid>("Id")
@@ -45,6 +85,10 @@ namespace Gcs.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<bool>("LinkRequested")
+                        .HasColumnType("boolean")
+                        .HasColumnName("link_requested");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -158,6 +202,174 @@ namespace Gcs.Persistence.Migrations
                         .HasFilter("processed_at IS NULL");
 
                     b.ToTable("outbox_messages", "gcs");
+                });
+
+            modelBuilder.Entity("Gcs.Persistence.Telemetry.TelemetrySampleRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("Id"));
+
+                    b.Property<double?>("AirSpeed")
+                        .HasColumnType("double precision")
+                        .HasColumnName("air_speed");
+
+                    b.Property<double?>("AltitudeMsl")
+                        .HasColumnType("double precision")
+                        .HasColumnName("altitude_msl");
+
+                    b.Property<bool?>("Armed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("armed");
+
+                    b.Property<double?>("BatteryCurrent")
+                        .HasColumnType("double precision")
+                        .HasColumnName("battery_current");
+
+                    b.Property<int?>("BatteryRemainingPercent")
+                        .HasColumnType("integer")
+                        .HasColumnName("battery_remaining_percent");
+
+                    b.Property<double?>("BatteryVoltage")
+                        .HasColumnType("double precision")
+                        .HasColumnName("battery_voltage");
+
+                    b.Property<double?>("ClimbRate")
+                        .HasColumnType("double precision")
+                        .HasColumnName("climb_rate");
+
+                    b.Property<string>("FlightMode")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("flight_mode");
+
+                    b.Property<string>("GpsFix")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("gps_fix");
+
+                    b.Property<double?>("GroundSpeed")
+                        .HasColumnType("double precision")
+                        .HasColumnName("ground_speed");
+
+                    b.Property<double?>("Heading")
+                        .HasColumnType("double precision")
+                        .HasColumnName("heading");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("latitude");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("longitude");
+
+                    b.Property<double?>("Pitch")
+                        .HasColumnType("double precision")
+                        .HasColumnName("pitch");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<double?>("RelativeAltitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("relative_altitude");
+
+                    b.Property<double?>("Roll")
+                        .HasColumnType("double precision")
+                        .HasColumnName("roll");
+
+                    b.Property<int?>("SatellitesVisible")
+                        .HasColumnType("integer")
+                        .HasColumnName("satellites_visible");
+
+                    b.Property<Guid>("VehicleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("vehicle_id");
+
+                    b.Property<double?>("Yaw")
+                        .HasColumnType("double precision")
+                        .HasColumnName("yaw");
+
+                    b.HasKey("Id")
+                        .HasName("pk_telemetry_samples");
+
+                    b.HasIndex("RecordedAt")
+                        .HasDatabaseName("ix_telemetry_samples_time");
+
+                    b.HasIndex("VehicleId", "RecordedAt")
+                        .HasDatabaseName("ix_telemetry_samples_vehicle_time");
+
+                    b.ToTable("telemetry_samples", "gcs");
+                });
+
+            modelBuilder.Entity("Gcs.Domain.Missions.Mission", b =>
+                {
+                    b.OwnsMany("Gcs.Domain.Missions.MissionItem", "Items", b1 =>
+                        {
+                            b1.Property<Guid>("MissionId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<double?>("Altitude");
+
+                            b1.Property<string>("Command")
+                                .IsRequired();
+
+                            b1.Property<double?>("HoldSeconds");
+
+                            b1.Property<double?>("Latitude");
+
+                            b1.Property<double?>("Longitude");
+
+                            b1.Property<double?>("Speed");
+
+                            b1.HasKey("MissionId", "__synthesizedOrdinal");
+
+                            b1.ToTable("missions", "gcs");
+
+                            b1
+                                .ToJson("items")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("MissionId")
+                                .HasConstraintName("fk_missions_missions_mission_id");
+                        });
+
+                    b.OwnsOne("Gcs.Domain.Missions.MissionUpload", "LastUpload", b1 =>
+                        {
+                            b1.Property<Guid>("MissionId");
+
+                            b1.Property<DateTimeOffset>("At");
+
+                            b1.Property<string>("Error");
+
+                            b1.Property<bool>("Succeeded");
+
+                            b1.Property<Guid>("VehicleId");
+
+                            b1.HasKey("MissionId");
+
+                            b1.ToTable("missions", "gcs");
+
+                            b1
+                                .ToJson("last_upload")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("MissionId")
+                                .HasConstraintName("fk_missions_missions_id");
+                        });
+
+                    b.Navigation("Items");
+
+                    b.Navigation("LastUpload");
                 });
 #pragma warning restore 612, 618
         }

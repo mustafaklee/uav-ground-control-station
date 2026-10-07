@@ -20,8 +20,8 @@ public sealed record SimulatedVehicleOptions
 
     public double RelativeAltitudeMetres { get; init; } = 100;
 
-    /// <summary>Battery percentage lost per second of flight.</summary>
-    public double BatteryDrainPercentPerSecond { get; init; } = 0.05;
+    /// <summary>Battery percentage lost per second of flight (0.02 %/s ≈ 80 minutes from full to empty).</summary>
+    public double BatteryDrainPercentPerSecond { get; init; } = 0.02;
 }
 
 /// <summary>
@@ -44,6 +44,9 @@ public sealed class SimulatedVehicle(SimulatedVehicleOptions options)
     private double _angleRadians;
     private double _batteryPercent = 100;
     private TimeSpan _elapsed;
+    private List<MissionItemIntMessage> _mission = [];
+    private List<MissionItemIntMessage>? _incoming;
+    private int _incomingCount;
 
     public SimulatedVehicleOptions Options { get; } = options;
 
@@ -109,14 +112,28 @@ public sealed class SimulatedVehicle(SimulatedVehicleOptions options)
         ];
     }
 
-    /// <summary>Handles a message from the GCS and returns the reply, if any.</summary>
-    public IMavlinkMessage? Handle(IMavlinkMessage message)
-    {
-        if (message is not CommandLongMessage command || command.TargetSystem != Options.SystemId)
-        {
-            return null;
-        }
+    /// <summary>The mission currently stored on the vehicle (as uploaded by a GCS).</summary>
+    public IReadOnlyList<MissionItemIntMessage> Mission => _mission;
 
+    /// <summary>Handles a message from the GCS and returns the reply, if any.</summary>
+    /// <param name="message">The decoded message.</param>
+    /// <param name="senderSystem">System id of the GCS that sent it; replies are addressed back to it.</param>
+    /// <param name="senderComponent">Component id of the sender.</param>
+    public IMavlinkMessage? Handle(IMavlinkMessage message, byte senderSystem = 255, byte senderComponent = MavComponent.MissionPlanner) =>
+        message switch
+        {
+            CommandLongMessage command when command.TargetSystem == Options.SystemId => HandleCommand(command),
+            MissionCountMessage count when count.TargetSystem == Options.SystemId => StartMissionUpload(count, senderSystem, senderComponent),
+            MissionItemIntMessage item when item.TargetSystem == Options.SystemId => ReceiveMissionItem(item, senderSystem, senderComponent),
+            MissionRequestListMessage list when list.TargetSystem == Options.SystemId =>
+                new MissionCountMessage(senderSystem, senderComponent, (ushort)_mission.Count),
+            MissionRequestIntMessage request when request.TargetSystem == Options.SystemId && request.Seq < _mission.Count =>
+                _mission[request.Seq] with { TargetSystem = senderSystem, TargetComponent = senderComponent },
+            _ => null,
+        };
+
+    private CommandAckMessage HandleCommand(CommandLongMessage command)
+    {
         if (command.Command != MavCmd.ComponentArmDisarm)
         {
             return new CommandAckMessage(command.Command, MavResult.Unsupported);
@@ -124,5 +141,43 @@ public sealed class SimulatedVehicle(SimulatedVehicleOptions options)
 
         IsArmed = command.Param1 >= 0.5f;
         return new CommandAckMessage(command.Command, MavResult.Accepted);
+    }
+
+    // Mission upload, vehicle side: like a real autopilot, ask for every item in order and acknowledge at the end.
+    private IMavlinkMessage StartMissionUpload(MissionCountMessage count, byte gcsSystem, byte gcsComponent)
+    {
+        _incoming = new List<MissionItemIntMessage>(count.Count);
+        _incomingCount = count.Count;
+        if (count.Count == 0)
+        {
+            _mission = [];
+            return new MissionAckMessage(gcsSystem, gcsComponent, MavMissionResult.Accepted);
+        }
+
+        return new MissionRequestIntMessage(gcsSystem, gcsComponent, 0);
+    }
+
+    private IMavlinkMessage? ReceiveMissionItem(MissionItemIntMessage item, byte gcsSystem, byte gcsComponent)
+    {
+        if (_incoming is null)
+        {
+            return null; // no upload in progress
+        }
+
+        if (item.Seq != _incoming.Count)
+        {
+            // Out of order (a request or item was lost): ask again for the one we need.
+            return new MissionRequestIntMessage(gcsSystem, gcsComponent, (ushort)_incoming.Count);
+        }
+
+        _incoming.Add(item);
+        if (_incoming.Count < _incomingCount)
+        {
+            return new MissionRequestIntMessage(gcsSystem, gcsComponent, (ushort)_incoming.Count);
+        }
+
+        _mission = _incoming;
+        _incoming = null;
+        return new MissionAckMessage(gcsSystem, gcsComponent, MavMissionResult.Accepted);
     }
 }

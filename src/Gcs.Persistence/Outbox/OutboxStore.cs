@@ -38,7 +38,7 @@ internal sealed partial class OutboxStore(GcsDbContext db, TimeProvider clock, I
             {
                 try
                 {
-                    await publish(new OutboxEntry(message.Id, message.Type, message.Payload, message.OccurredAt), ct);
+                    await publish(new OutboxEntry(message.Id, message.Type, message.Payload, message.OccurredAt, message.TraceParent), ct);
                     message.ProcessedAt = clock.GetUtcNow();
                     published++;
                 }
@@ -55,6 +55,14 @@ internal sealed partial class OutboxStore(GcsDbContext db, TimeProvider clock, I
             await transaction.CommitAsync(ct);
             return published;
         }, cancellationToken);
+    }
+
+    public async Task<OutboxBacklog> GetBacklogAsync(CancellationToken cancellationToken)
+    {
+        var pending = db.OutboxMessages.AsNoTracking().Where(m => m.ProcessedAt == null);
+        var count = await pending.CountAsync(cancellationToken);
+        var oldest = count == 0 ? null : await pending.MinAsync(m => (DateTimeOffset?)m.OccurredAt, cancellationToken);
+        return new OutboxBacklog(count, oldest);
     }
 
     private static string Truncate(string value, int maxLength) =>

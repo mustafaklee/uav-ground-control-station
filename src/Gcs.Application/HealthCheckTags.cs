@@ -7,4 +7,10 @@ namespace Gcs.Application;
 public static class HealthCheckTags
 {
     public const string Ready = "ready";
+
+    /// <summary>
+    /// Operational checks (vehicle links, outbox backlog, history writes). They report Degraded, never block traffic,
+    /// and appear only on the authenticated <c>/health/details</c> endpoint.
+    /// </summary>
+    public const string Monitoring = "monitoring";
 }

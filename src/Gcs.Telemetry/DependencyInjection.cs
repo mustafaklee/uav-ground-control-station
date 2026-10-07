@@ -1,3 +1,4 @@
+using Gcs.Application;
 using Gcs.Application.Abstractions;
 using Gcs.Telemetry.History;
 using Gcs.Telemetry.Live;
@@ -24,6 +25,8 @@ public static class DependencyInjection
         services.AddHostedService<TelemetryBroadcaster>();
         services.AddHostedService<TelemetryHistoryWriter>();
         services.AddHostedService<TelemetryRetentionService>();
+        services.AddSingleton<TelemetryHistoryHealthCheck>();
+        services.AddHealthChecks().AddCheck<TelemetryHistoryHealthCheck>("telemetry-history", tags: [HealthCheckTags.Monitoring]);
         return services;
     }
 }

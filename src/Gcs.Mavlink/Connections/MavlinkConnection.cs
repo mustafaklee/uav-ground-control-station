@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Threading.Channels;
 using Gcs.Application.Abstractions;
+using Gcs.Application.Diagnostics;
 using Gcs.Domain.Commands;
 using Gcs.Domain.Common;
 using Gcs.Domain.Vehicles.Connections;
@@ -38,6 +40,8 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
     private readonly TimeProvider _time;
     private readonly ILogger _logger;
     private readonly Random _random;
+    private readonly GcsMetrics _metrics;
+    private readonly KeyValuePair<string, object?> _vehicleTag;
     private readonly Lock _gate = new();
     private readonly VehicleConnection _state;
     private readonly MavlinkFrameParser _parser = new();
@@ -64,7 +68,8 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
         MavlinkConnectionOptions options,
         TimeProvider time,
         ILogger logger,
-        Random? random = null)
+        Random? random = null,
+        GcsMetrics? metrics = null)
     {
         _target = target;
         _transports = transports;
@@ -74,6 +79,8 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
         _time = time;
         _logger = logger;
         _random = random ?? Random.Shared;
+        _metrics = metrics ?? GcsMetrics.Unobserved;
+        _vehicleTag = new(GcsTracing.VehicleId, target.VehicleId.Value.ToString());
         _state = new VehicleConnection(target.VehicleId, options.MaxReconnectAttempts);
     }
 
@@ -290,6 +297,8 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
                     continue;
                 }
 
+                _metrics.MavlinkFrames.Add(1, _vehicleTag);
+
                 Handle(message!);
             }
         }
@@ -373,12 +382,13 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
         "Another mission transfer to this vehicle is in progress. Wait for it to finish and try again.");
 
     public Task<Result> UploadMissionAsync(IReadOnlyList<MissionItemIntMessage> items, CancellationToken cancellationToken) =>
-        RunMissionTransferAsync(transfer => transfer.UploadAsync(items, cancellationToken), cancellationToken);
+        RunMissionTransferAsync("upload", transfer => transfer.UploadAsync(items, cancellationToken), cancellationToken);
 
     public async Task<Result<IReadOnlyList<MissionItemIntMessage>>> DownloadMissionAsync(CancellationToken cancellationToken)
     {
         IReadOnlyList<MissionItemIntMessage> items = [];
         var result = await RunMissionTransferAsync(
+            "download",
             async transfer =>
             {
                 var download = await transfer.DownloadAsync(cancellationToken);
@@ -405,6 +415,33 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
     /// Different commands may overlap (an RTL is not blocked by a mode change still in flight).
     /// </summary>
     public async Task<CommandDelivery> SendCommandAsync(VehicleCommand command, CancellationToken cancellationToken)
+    {
+        // A child of the HTTP request's span: the trace shows the audit INSERT, this exchange and the audit UPDATE in order.
+        using var activity = GcsTracing.Source.StartActivity($"vehicle.command {command.Type}", ActivityKind.Client);
+        activity?.SetTag(GcsTracing.VehicleId, _target.VehicleId.Value.ToString());
+        activity?.SetTag(GcsTracing.Command, command.Type.ToString());
+        var started = _time.GetTimestamp();
+
+        var delivery = await SendCommandCoreAsync(command, cancellationToken);
+
+        activity?.SetTag(GcsTracing.CommandOutcome, delivery.Status.ToString());
+        activity?.SetTag(GcsTracing.CommandAttempts, delivery.Attempts);
+        if (delivery.Status != CommandDeliveryStatus.Accepted)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, delivery.Detail ?? delivery.Status.ToString());
+        }
+
+        var tags = new TagList { { GcsTracing.Command, command.Type.ToString() }, { GcsTracing.CommandOutcome, delivery.Status.ToString() } };
+        _metrics.Commands.Add(1, tags);
+        if (delivery.Attempts > 0)
+        {
+            _metrics.CommandDuration.Record(_time.GetElapsedTime(started).TotalSeconds, tags);
+        }
+
+        return delivery;
+    }
+
+    private async Task<CommandDelivery> SendCommandCoreAsync(VehicleCommand command, CancellationToken cancellationToken)
     {
         if (State != ConnectionState.Connected || _activeTransport is null)
         {
@@ -450,7 +487,21 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
         InProgressTimeout = TimeSpan.FromMilliseconds(_options.CommandInProgressTimeoutMilliseconds),
     };
 
-    private async Task<Result> RunMissionTransferAsync(Func<MissionTransfer, Task<Result>> run, CancellationToken cancellationToken)
+    private async Task<Result> RunMissionTransferAsync(string direction, Func<MissionTransfer, Task<Result>> run, CancellationToken cancellationToken)
+    {
+        using var activity = GcsTracing.Source.StartActivity($"mission.{direction}", ActivityKind.Client);
+        activity?.SetTag(GcsTracing.VehicleId, _target.VehicleId.Value.ToString());
+        var result = await RunMissionTransferCoreAsync(run, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, result.Error.Message);
+        }
+
+        _metrics.MissionTransfers.Add(1, new TagList { { "direction", direction }, { "result", result.IsSuccess ? "success" : result.Error.Code } });
+        return result;
+    }
+
+    private async Task<Result> RunMissionTransferCoreAsync(Func<MissionTransfer, Task<Result>> run, CancellationToken cancellationToken)
     {
         if (State != ConnectionState.Connected || _activeTransport is null)
         {
@@ -505,6 +556,7 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
 
         if (changed is not null)
         {
+            _metrics.LinkStateChanges.Add(1, _vehicleTag, new KeyValuePair<string, object?>("state", changed.State.ToString()));
             _events.StateChanged(changed, previous);
         }
 

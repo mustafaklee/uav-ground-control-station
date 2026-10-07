@@ -17,6 +17,9 @@ public interface IVehicleRepository
     Task<bool> IsSystemIdInUseAsync(MavlinkSystemId systemId, VehicleId? excluding, CancellationToken cancellationToken);
 
     void Add(Vehicle vehicle);
+
+    /// <summary>Active vehicles the operator left connected, for restoring links at startup.</summary>
+    Task<IReadOnlyList<Vehicle>> ListLinkRequestedAsync(CancellationToken cancellationToken);
 }
 
 /// <summary>

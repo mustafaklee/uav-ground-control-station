@@ -63,6 +63,13 @@ public sealed class Vehicle : AggregateRoot<VehicleId>
 
     public bool IsRetired => Status == VehicleStatus.Retired;
 
+    /// <summary>
+    /// The operator wants a live link to this vehicle. Stored so links are restored after the GCS restarts:
+    /// live link state itself lives in memory and is lost on restart, the operator's intent must not be.
+    /// Operational state, not registration data, so changing it does not bump <see cref="Version"/>.
+    /// </summary>
+    public bool LinkRequested { get; private set; }
+
     public static Vehicle Register(
         Callsign callsign,
         MavlinkSystemId systemId,
@@ -122,6 +129,21 @@ public sealed class Vehicle : AggregateRoot<VehicleId>
         return Result.Success();
     }
 
+    /// <summary>Records that the operator wants this vehicle connected. Retired vehicles cannot be connected.</summary>
+    public Result RequestLink()
+    {
+        if (IsRetired)
+        {
+            return VehicleErrors.Retired;
+        }
+
+        LinkRequested = true;
+        return Result.Success();
+    }
+
+    /// <summary>Records that the operator ended the link on purpose; it will not be restored after a restart.</summary>
+    public void ReleaseLink() => LinkRequested = false;
+
     /// <summary>
     /// Takes the vehicle out of service. Retiring an already retired vehicle succeeds without doing anything,
     /// so a repeated DELETE request (for example after a network timeout) is harmless.
@@ -139,6 +161,7 @@ public sealed class Vehicle : AggregateRoot<VehicleId>
         }
 
         Status = VehicleStatus.Retired;
+        LinkRequested = false;
         Touch(now);
 
         RaiseDomainEvent(new VehicleRetired(Id, Callsign, now));

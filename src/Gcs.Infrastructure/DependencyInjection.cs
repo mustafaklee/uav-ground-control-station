@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.AddSingleton<VehicleLinkEventDispatcher>();
         services.AddSingleton<IVehicleLinkEventSink>(sp => sp.GetRequiredService<VehicleLinkEventDispatcher>());
         services.AddHostedService(sp => sp.GetRequiredService<VehicleLinkEventDispatcher>());
+        services.AddHostedService<VehicleLinkRestorer>();
 
         return services;
     }

@@ -19,6 +19,9 @@ internal sealed class FakeVehicleRepository : IVehicleRepository
         Task.FromResult(Vehicles.Any(v => !v.IsRetired && v.SystemId == systemId && v.Id != excluding));
 
     public void Add(Vehicle vehicle) => Vehicles.Add(vehicle);
+
+    public Task<IReadOnlyList<Vehicle>> ListLinkRequestedAsync(CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<Vehicle>>([.. Vehicles.Where(v => v.LinkRequested && !v.IsRetired)]);
 }
 
 /// <summary>Records saves and can simulate database-level failures.</summary>
@@ -50,7 +53,13 @@ internal sealed class FakeLinkManager : IVehicleLinkManager
 {
     public List<VehicleId> Disconnected { get; } = [];
 
-    public Task<Result> ConnectAsync(VehicleLinkTarget target, CancellationToken cancellationToken) => Task.FromResult(Result.Success());
+    public List<VehicleId> Connected { get; } = [];
+
+    public Task<Result> ConnectAsync(VehicleLinkTarget target, CancellationToken cancellationToken)
+    {
+        Connected.Add(target.VehicleId);
+        return Task.FromResult(Result.Success());
+    }
 
     public Task DisconnectAsync(VehicleId vehicleId, CancellationToken cancellationToken)
     {

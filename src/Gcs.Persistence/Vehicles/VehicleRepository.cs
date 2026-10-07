@@ -20,4 +20,7 @@ internal sealed class VehicleRepository(GcsDbContext db) : IVehicleRepository
             cancellationToken);
 
     public void Add(Vehicle vehicle) => db.Vehicles.Add(vehicle);
+
+    public async Task<IReadOnlyList<Vehicle>> ListLinkRequestedAsync(CancellationToken cancellationToken) =>
+        await db.Vehicles.Where(v => v.LinkRequested && v.Status == VehicleStatus.Active).ToListAsync(cancellationToken);
 }

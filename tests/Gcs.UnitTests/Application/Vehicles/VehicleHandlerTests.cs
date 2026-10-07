@@ -159,6 +159,38 @@ public sealed class VehicleHandlerTests
     }
 
     [Fact]
+    public async Task Connect_remembers_the_request_and_disconnect_forgets_it()
+    {
+        var created = await Register(ValidRegistration("UAV-01", systemId: 1));
+        var vehicle = _repository.Vehicles.Single();
+
+        await new ConnectVehicleHandler(_repository, _unitOfWork, _links).HandleAsync(created.Value.Id, CancellationToken.None);
+        vehicle.LinkRequested.ShouldBeTrue();
+
+        await new DisconnectVehicleHandler(_repository, _unitOfWork, _links).HandleAsync(created.Value.Id, CancellationToken.None);
+        vehicle.LinkRequested.ShouldBeFalse();
+        _links.Disconnected.ShouldContain(vehicle.Id);
+    }
+
+    [Fact]
+    public async Task Restore_reconnects_only_active_vehicles_that_were_left_connected()
+    {
+        var connected = await Register(ValidRegistration("UAV-01", systemId: 1));
+        await Register(ValidRegistration("UAV-02", systemId: 2));
+        var retired = await Register(ValidRegistration("UAV-03", systemId: 3));
+        var connect = new ConnectVehicleHandler(_repository, _unitOfWork, _links);
+        await connect.HandleAsync(connected.Value.Id, CancellationToken.None);
+        await connect.HandleAsync(retired.Value.Id, CancellationToken.None);
+        await Retire(retired.Value.Id, expectedVersion: null);
+        _links.Connected.Clear();
+
+        var restored = await new RestoreVehicleLinksHandler(_repository, _links).HandleAsync(CancellationToken.None);
+
+        restored.ShouldBe(1);
+        _links.Connected.ShouldHaveSingleItem().Value.ShouldBe(connected.Value.Id);
+    }
+
+    [Fact]
     public async Task Retire_of_an_unknown_vehicle_returns_not_found()
     {
         var result = await Retire(Guid.NewGuid(), expectedVersion: null);

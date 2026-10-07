@@ -26,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<ListVehiclesHandler>();
         services.AddScoped<ConnectVehicleHandler>();
         services.AddScoped<DisconnectVehicleHandler>();
+        services.AddScoped<RestoreVehicleLinksHandler>();
         services.AddScoped<GetVehicleLinkHandler>();
         services.AddScoped<GetLatestTelemetryHandler>();
         services.AddScoped<TelemetryHistoryHandler>();

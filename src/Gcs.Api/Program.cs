@@ -56,6 +56,7 @@ try
     app.MapHealthEndpoints();
     app.MapSystemEndpoints();
     app.MapVehicleEndpoints();
+    app.MapMissionEndpoints();
     app.MapHub<TelemetryHub>(RealtimeRoutes.TelemetryHub);
     app.MapHub<VehiclesHub>(RealtimeRoutes.VehiclesHub);
 

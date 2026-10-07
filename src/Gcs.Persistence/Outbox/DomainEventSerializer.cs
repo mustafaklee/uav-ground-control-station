@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Gcs.Domain.Common;
+using Gcs.Domain.Missions;
 using Gcs.Domain.Vehicles;
 
 namespace Gcs.Persistence.Outbox;
@@ -27,6 +28,7 @@ internal static class DomainEventSerializer
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         options.Converters.Add(new JsonStringEnumConverter());
         options.Converters.Add(new ValueConverter<VehicleId, Guid>(id => id.Value));
+        options.Converters.Add(new ValueConverter<MissionId, Guid>(id => id.Value));
         options.Converters.Add(new ValueConverter<Callsign, string>(callsign => callsign.Value));
         options.Converters.Add(new ValueConverter<MavlinkSystemId, int>(id => id.Value));
         return options;

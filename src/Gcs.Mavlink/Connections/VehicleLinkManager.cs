@@ -1,9 +1,12 @@
 using System.Collections.Concurrent;
 using Gcs.Application.Abstractions;
 using Gcs.Domain.Common;
+using Gcs.Domain.Missions;
 using Gcs.Domain.Vehicles;
 using Gcs.Domain.Vehicles.Connections;
+using Gcs.Mavlink.Protocol;
 using Gcs.Mavlink.Transports;
+using Gcs.Mavlink.Translation;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -19,7 +22,7 @@ internal sealed class VehicleLinkManager(
     IVehicleLinkEventSink events,
     IOptions<MavlinkConnectionOptions> options,
     TimeProvider time,
-    ILoggerFactory loggers) : IVehicleLinkManager, IAsyncDisposable
+    ILoggerFactory loggers) : IVehicleLinkManager, IVehicleMissionTransfer, IAsyncDisposable
 {
     private static readonly Error AlreadyConnected = Error.Conflict(
         "vehicle.link.already_active",
@@ -78,6 +81,31 @@ internal sealed class VehicleLinkManager(
 
     public VehicleLinkStatus? GetStatus(VehicleId vehicleId) =>
         _connections.TryGetValue(vehicleId, out var connection) ? connection.GetStatus() : null;
+
+    public async Task<Result> UploadAsync(VehicleId vehicleId, IReadOnlyList<MissionItem> items, CancellationToken cancellationToken)
+    {
+        if (!_connections.TryGetValue(vehicleId, out var connection))
+        {
+            return MavlinkConnection.NotConnected;
+        }
+
+        var target = connection.Target;
+        var messages = MissionItemMapper.ToMavlink(items, target.Autopilot, target.SystemId.Value, MavComponent.Autopilot1);
+        return await connection.UploadMissionAsync(messages, cancellationToken);
+    }
+
+    public async Task<Result<IReadOnlyList<MissionItem>>> DownloadAsync(VehicleId vehicleId, CancellationToken cancellationToken)
+    {
+        if (!_connections.TryGetValue(vehicleId, out var connection))
+        {
+            return MavlinkConnection.NotConnected;
+        }
+
+        var download = await connection.DownloadMissionAsync(cancellationToken);
+        return download.IsSuccess
+            ? Result.Success(MissionItemMapper.FromMavlink(download.Value, connection.Target.Autopilot))
+            : download.Error;
+    }
 
     public async ValueTask DisposeAsync()
     {

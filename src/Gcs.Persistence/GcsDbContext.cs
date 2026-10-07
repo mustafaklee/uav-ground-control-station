@@ -1,4 +1,5 @@
 using Gcs.Domain.Common;
+using Gcs.Domain.Missions;
 using Gcs.Domain.Vehicles;
 using Gcs.Persistence.Outbox;
 using Gcs.Persistence.Telemetry;
@@ -15,6 +16,8 @@ public sealed class GcsDbContext(DbContextOptions<GcsDbContext> options) : DbCon
     public const string Schema = "gcs";
 
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
+
+    public DbSet<Mission> Missions => Set<Mission>();
 
     internal DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 

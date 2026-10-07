@@ -20,6 +20,12 @@ public class Result
 
     public static Result Success() => new(null);
 
+    /// <summary>
+    /// Explicit success. Needed for interface-typed values (e.g. <c>IReadOnlyList&lt;T&gt;</c>): C# never applies
+    /// user-defined implicit conversions to interface types, so <c>return list;</c> does not compile there.
+    /// </summary>
+    public static Result<T> Success<T>(T value) => new(value);
+
     public static Result Failure(Error error)
     {
         ArgumentNullException.ThrowIfNull(error);
@@ -33,7 +39,7 @@ public sealed class Result<T> : Result
 {
     private readonly T? _value;
 
-    private Result(T value)
+    internal Result(T value)
         : base(null)
     {
         _value = value;

@@ -1,5 +1,8 @@
+using System.Threading.Channels;
 using Gcs.Application.Abstractions;
+using Gcs.Domain.Common;
 using Gcs.Domain.Vehicles.Connections;
+using Gcs.Mavlink.Missions;
 using Gcs.Mavlink.Protocol;
 using Gcs.Mavlink.Protocol.Messages;
 using Gcs.Mavlink.Transports;
@@ -36,8 +39,11 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
     private readonly VehicleConnection _state;
     private readonly MavlinkFrameParser _parser = new();
     private readonly CancellationTokenSource _stop = new();
+    private readonly SemaphoreSlim _missionGate = new(1, 1);
 
     private Task? _run;
+    private volatile IMavlinkTransport? _activeTransport;
+    private volatile Channel<IMavlinkMessage>? _missionInbox;
     private DateTimeOffset _sessionStartedAt;
     private int _sequence;
     private int _disposed;
@@ -112,6 +118,7 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
 
         Mutate(state => state.Disconnect());
         _stop.Dispose();
+        _missionGate.Dispose();
         LogDisconnected(_target.VehicleId.Value);
     }
 
@@ -173,10 +180,12 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
                 _sessionStartedAt = _time.GetUtcNow();
             }
 
+            _activeTransport = transport;
             var receive = ReceiveLoopAsync(transport, session.Token);
             var heartbeat = HeartbeatLoopAsync(transport, session.Token);
             var reason = await WatchdogAsync(receive, session.Token);
 
+            _activeTransport = null;
             await session.CancelAsync();
             await Task.WhenAll(Quietly(receive), Quietly(heartbeat));
             return reason;
@@ -280,6 +289,13 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
 
     private void Handle(IMavlinkMessage message)
     {
+        if (message is MissionRequestIntMessage or MissionCountMessage or MissionItemIntMessage or MissionAckMessage)
+        {
+            // Mission protocol replies belong to the transfer in progress, if any; otherwise they are stale and dropped.
+            _missionInbox?.Writer.TryWrite(message);
+            return;
+        }
+
         var now = _time.GetUtcNow();
         if (message is HeartbeatMessage { Type: not MavType.Gcs })
         {
@@ -323,6 +339,73 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
     }
 
     private byte NextSequence() => (byte)Interlocked.Increment(ref _sequence);
+
+    public static readonly Error NotConnected = Error.Conflict(
+        "vehicle.link.not_connected", "The vehicle is not connected. Connect it and wait for its heartbeat first.");
+
+    public static readonly Error TransferInProgress = Error.Conflict(
+        "vehicle.mission.transfer_in_progress",
+        "Another mission transfer to this vehicle is in progress. Wait for it to finish and try again.");
+
+    public Task<Result> UploadMissionAsync(IReadOnlyList<MissionItemIntMessage> items, CancellationToken cancellationToken) =>
+        RunMissionTransferAsync(transfer => transfer.UploadAsync(items, cancellationToken), cancellationToken);
+
+    public async Task<Result<IReadOnlyList<MissionItemIntMessage>>> DownloadMissionAsync(CancellationToken cancellationToken)
+    {
+        IReadOnlyList<MissionItemIntMessage> items = [];
+        var result = await RunMissionTransferAsync(
+            async transfer =>
+            {
+                var download = await transfer.DownloadAsync(cancellationToken);
+                if (!download.IsSuccess)
+                {
+                    return download.Error;
+                }
+
+                items = download.Value;
+                return Result.Success();
+            },
+            cancellationToken);
+        return result.IsSuccess ? Result.Success(items) : result.Error;
+    }
+
+    /// <summary>
+    /// One transfer at a time per vehicle: two operators uploading at once would interleave MISSION_ITEMs and
+    /// corrupt the vehicle's mission, so the second one is refused instead of queued.
+    /// </summary>
+    private async Task<Result> RunMissionTransferAsync(Func<MissionTransfer, Task<Result>> run, CancellationToken cancellationToken)
+    {
+        if (State != ConnectionState.Connected || _activeTransport is null)
+        {
+            return NotConnected;
+        }
+
+        if (!await _missionGate.WaitAsync(0, cancellationToken))
+        {
+            return TransferInProgress;
+        }
+
+        try
+        {
+            var inbox = Channel.CreateUnbounded<IMavlinkMessage>();
+            _missionInbox = inbox;
+            var transfer = new MissionTransfer(
+                SendAsync, inbox.Reader, new MissionTransferOptions(), _time, _target.SystemId.Value, MavComponent.Autopilot1);
+            return await run(transfer);
+        }
+        finally
+        {
+            _missionInbox = null;
+            _missionGate.Release();
+        }
+    }
+
+    private async ValueTask SendAsync(IMavlinkMessage message, CancellationToken cancellationToken)
+    {
+        var transport = _activeTransport ?? throw new InvalidOperationException("The link has no active transport.");
+        var frame = MavlinkCodec.Encode(message, NextSequence(), (byte)_options.GcsSystemId, MavComponent.MissionPlanner);
+        await transport.SendAsync(frame, cancellationToken);
+    }
 
     /// <summary>
     /// Runs a state change under the lock and, if the state actually changed, reports it after releasing the lock.

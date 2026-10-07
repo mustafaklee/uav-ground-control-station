@@ -1,4 +1,5 @@
 using FluentValidation;
+using Gcs.Application.Missions;
 using Gcs.Application.Vehicles;
 using Gcs.Contracts.Vehicles;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +31,14 @@ public static class DependencyInjection
         services.AddScoped<GetVehicleLinkHandler>();
         services.AddScoped<GetLatestTelemetryHandler>();
         services.AddScoped<TelemetryHistoryHandler>();
+
+        services.AddScoped<CreateMissionHandler>();
+        services.AddScoped<UpdateMissionHandler>();
+        services.AddScoped<GetMissionHandler>();
+        services.AddScoped<ListMissionsHandler>();
+        services.AddScoped<ArchiveMissionHandler>();
+        services.AddScoped<UploadMissionHandler>();
+        services.AddScoped<DownloadVehicleMissionHandler>();
 
         return services;
     }

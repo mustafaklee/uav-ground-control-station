@@ -61,7 +61,7 @@ public sealed class SimulatedVehicleRunner(SimulatedVehicle vehicle, IMavlinkTra
                 var read = await transport.ReceiveAsync(buffer, cancellationToken);
                 foreach (var frame in parser.Parse(buffer.AsSpan(0, read)))
                 {
-                    if (MavlinkCodec.TryDecode(frame, out var message) && vehicle.Handle(message!) is { } reply)
+                    if (MavlinkCodec.TryDecode(frame, out var message) && vehicle.Handle(message!, frame.SystemId, frame.ComponentId) is { } reply)
                     {
                         await SendAsync(reply, cancellationToken);
                     }

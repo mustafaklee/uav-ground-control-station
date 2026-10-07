@@ -6,7 +6,13 @@ A modular, testable ground control station (GCS) for managing multiple UAVs over
 ASP.NET Core, PostgreSQL, RabbitMQ, SignalR and Avalonia UI. It is engineered like a defence-industry product:
 reliability, safety, security and observability come before features.
 
-> **Status: Phase 7, command system.** Operators take control of a vehicle (one operator per vehicle, expiring command
+> **Status: Phase 8, security.** Users sign in (JWT access tokens for 15 minutes, rotating refresh tokens with reuse
+> detection). Four roles map to permission policies, and a test checks every endpoint against every role. Passwords are
+> hashed with PBKDF2 and accounts lock after repeated failures. The API is rate limited and sends defensive headers, and
+> secrets come only from user-secrets or `.env`. The desktop client has a sign-in window. See
+> [docs/security.md](docs/security.md).
+>
+> Phase 7, command system: Operators take control of a vehicle (one operator per vehicle, expiring command
 > lease) and send ARM, DISARM, TAKEOFF, LAND, RTL and SET_MODE. Each command waits for the vehicle's COMMAND_ACK with a
 > timeout and bounded retries, a duplicate in flight is refused, critical commands need confirmation, and every
 > attempt is written to an append-only audit log in PostgreSQL. See [docs/commands.md](docs/commands.md).
@@ -78,8 +84,9 @@ Avalonia GCS ──REST/SignalR──► Gcs.Api ──► Application ──►
 | Commands (ARM, DISARM, TAKEOFF, LAND, RTL, SET_MODE) over COMMAND_LONG with ACK timeout and retry | ✅ Phase 7 |
 | Command lease (one operator per vehicle), duplicate-in-flight refusal, confirmation of critical commands | ✅ Phase 7 |
 | Append-only command audit log in PostgreSQL, desktop control panel | ✅ Phase 7 |
-| Role-based authorization of critical commands | Planned (Phase 8) |
-| Authentication, roles, audit log, rate limiting | Planned (Phase 8) |
+| JWT sign-in, rotating refresh tokens with reuse detection, account lockout | ✅ Phase 8 |
+| Roles → permission policies (critical commands need `vehicles.command`), authorization-matrix tests | ✅ Phase 8 |
+| Rate limiting (global, login, commands), security headers, secrets outside the repo, desktop sign-in | ✅ Phase 8 |
 | OpenTelemetry metrics and tracing | Planned (Phase 9) |
 | PX4 SITL integration | Planned (Phase 10) |
 
@@ -111,9 +118,10 @@ Avalonia GCS ──REST/SignalR──► Gcs.Api ──► Application ──►
 ```bash
 git clone https://github.com/mustafaklee/uav-ground-control-station.git
 cd uav-ground-control-station
-cp .env.example .env              # adjust credentials if you like
+cp .env.example .env              # set JWT_SIGNING_KEY and GCS_ADMIN_PASSWORD (see docs/security.md)
 docker compose up -d --wait postgres rabbitmq
 dotnet build Gcs.slnx
+dotnet user-secrets set "Security:BootstrapAdministrator:Password" "<a long passphrase>" --project src/Gcs.Api
 dotnet run --project src/Gcs.Api  # http://localhost:5134/health/ready
 ```
 
@@ -134,7 +142,8 @@ dotnet run --project src/Gcs.Desktop                              # backend at h
 dotnet run --project src/Gcs.Desktop -- --api http://10.0.0.5:8080/
 ```
 
-The client keeps retrying if the backend is not up yet. Select a vehicle to see it on the map; Connect/Disconnect
+The client opens with a sign-in window (the first account is the bootstrap administrator; create personal accounts
+from there, see [docs/security.md](docs/security.md)). It keeps retrying if the backend is not up yet. Select a vehicle to see it on the map; Connect/Disconnect
 start and stop its MAVLink link. The Mission tab plans, saves and uploads missions to the selected vehicle
 ([docs/missions.md](docs/missions.md)). Map data © OpenStreetMap contributors.
 

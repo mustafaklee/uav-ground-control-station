@@ -50,11 +50,13 @@ public sealed class RealtimeClient : IRealtimeClient
     private readonly CancellationTokenSource _stop = new();
     private BackendConnectionState _state = BackendConnectionState.Disconnected;
 
-    public RealtimeClient(Uri apiBaseUrl)
+    /// <param name="apiBaseUrl">The API root.</param>
+    /// <param name="accessToken">Supplies the bearer token for every (re)connect; SignalR sends it as <c>access_token</c>.</param>
+    public RealtimeClient(Uri apiBaseUrl, Func<Task<string?>> accessToken)
     {
         ArgumentNullException.ThrowIfNull(apiBaseUrl);
-        _telemetry = Build(new Uri(apiBaseUrl, RealtimeRoutes.TelemetryHub));
-        _vehicles = Build(new Uri(apiBaseUrl, RealtimeRoutes.VehiclesHub));
+        _telemetry = Build(new Uri(apiBaseUrl, RealtimeRoutes.TelemetryHub), accessToken);
+        _vehicles = Build(new Uri(apiBaseUrl, RealtimeRoutes.VehiclesHub), accessToken);
 
         _telemetry.On<TelemetryResponse>(nameof(ITelemetryHubClient.TelemetryUpdated), t => TelemetryReceived?.Invoke(t));
         _vehicles.On<VehicleLinkResponse>(nameof(IVehiclesHubClient.LinkStatusChanged), s => LinkStatusReceived?.Invoke(s));
@@ -127,8 +129,8 @@ public sealed class RealtimeClient : IRealtimeClient
         _stop.Dispose();
     }
 
-    private static HubConnection Build(Uri url) =>
-        new HubConnectionBuilder().WithUrl(url).WithAutomaticReconnect().Build();
+    private static HubConnection Build(Uri url, Func<Task<string?>> accessToken) =>
+        new HubConnectionBuilder().WithUrl(url, options => options.AccessTokenProvider = accessToken).WithAutomaticReconnect().Build();
 
     private async Task StartWithRetryAsync(CancellationToken stopping)
     {

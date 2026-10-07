@@ -123,6 +123,21 @@ public sealed class CommandPanelViewModelTests : IAsyncDisposable
         Panel.LandCommand.CanExecute(null).ShouldBeTrue();
     }
 
+    [Fact]
+    public async Task An_observer_sees_the_panel_but_cannot_take_control()
+    {
+        var observer = new MainWindowViewModel(_api, _realtime, new ImmediateDispatcher(), new Uri("http://localhost:8080/"), _confirmation, "watcher", "Observer");
+        var vehicle = DesktopTestData.Vehicle("UAV-01");
+        _api.Vehicles.Add(vehicle);
+        _api.LinkStates[vehicle.Id] = "Connected";
+        await observer.InitializeAsync(Ct);
+        await observer.Commands.LoadAsync(Ct);
+
+        observer.CurrentUser.ShouldBe("watcher (Observer)");
+        observer.Commands.TakeControlCommand.CanExecute(null).ShouldBeFalse();
+        observer.Commands.ControlText.ShouldBe("Nobody controls this vehicle. Your role cannot command vehicles.");
+    }
+
     private async Task<Guid> SelectVehicleAsync(bool connected)
     {
         var vehicle = DesktopTestData.Vehicle("UAV-01");

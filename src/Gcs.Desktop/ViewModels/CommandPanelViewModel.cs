@@ -19,15 +19,23 @@ public sealed partial class CommandPanelViewModel : ObservableObject
     private readonly Func<VehicleItemViewModel?> _selectedVehicle;
 
     public CommandPanelViewModel(
-        IGcsApiClient api, IConfirmationService confirmation, Func<VehicleItemViewModel?> selectedVehicle, string operatorName)
+        IGcsApiClient api,
+        IConfirmationService confirmation,
+        Func<VehicleItemViewModel?> selectedVehicle,
+        string operatorName,
+        bool mayCommand = true)
     {
         _api = api;
         _confirmation = confirmation;
         _selectedVehicle = selectedVehicle;
         OperatorName = operatorName;
+        MayCommand = mayCommand;
     }
 
     public string OperatorName { get; }
+
+    /// <summary>False for observers and maintenance staff: their role has no Command permission.</summary>
+    public bool MayCommand { get; }
 
     public ObservableCollection<string> FlightModes { get; } = [];
 
@@ -63,6 +71,7 @@ public sealed partial class CommandPanelViewModel : ObservableObject
 
     public string ControlText => Lease?.Holder switch
     {
+        null when !MayCommand => "Nobody controls this vehicle. Your role cannot command vehicles.",
         null => "Nobody controls this vehicle.",
         var holder when holder == OperatorName => $"You ({OperatorName}) control this vehicle.",
         var holder => $"Controlled by {holder} until {Lease.ExpiresAt?.ToLocalTime():HH:mm:ss}.",
@@ -178,7 +187,7 @@ public sealed partial class CommandPanelViewModel : ObservableObject
     private Task ReturnToLaunchAsync(CancellationToken cancellationToken) =>
         SendAsync(new SendCommandRequest("ReturnToLaunch"), "RTL", null, cancellationToken);
 
-    private bool CanTakeControl() => _selectedVehicle() is not null && !HasControl && !IsBusy;
+    private bool CanTakeControl() => MayCommand && _selectedVehicle() is not null && !HasControl && !IsBusy;
 
     private bool CanSend() => HasControl && _selectedVehicle()?.IsConnected == true;
 

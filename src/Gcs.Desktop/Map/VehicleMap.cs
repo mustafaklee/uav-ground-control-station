@@ -106,6 +106,22 @@ public sealed class VehicleMap : IDisposable
         }
     }
 
+    /// <summary>Fits the view to the given mission points, with a margin so the outer markers are not on the edge.</summary>
+    public void ZoomToMission(IReadOnlyList<MissionMapPoint> points)
+    {
+        ArgumentNullException.ThrowIfNull(points);
+        if (points.Count == 0)
+        {
+            return;
+        }
+
+        var projected = points.Select(p => SphericalMercator.FromLonLat(p.Longitude, p.Latitude)).ToList();
+        var box = new MRect(projected.Min(p => p.x), projected.Min(p => p.y), projected.Max(p => p.x), projected.Max(p => p.y));
+        var margin = Math.Max(Math.Max(box.Width, box.Height) * 0.4, 100);
+        Map.Navigator.ZoomToBox(box.Grow(margin), MBoxFit.Fit);
+        _centeredOnce = true;
+    }
+
     /// <summary>Converts a point on the map control (device-independent pixels) to WGS84 degrees.</summary>
     public (double Latitude, double Longitude) ToLatLon(double screenX, double screenY)
     {

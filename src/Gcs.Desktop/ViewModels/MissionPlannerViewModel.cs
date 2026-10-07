@@ -32,6 +32,9 @@ public sealed partial class MissionPlannerViewModel : ObservableObject
     /// <summary>Raised whenever the route on the map must be redrawn (items added, removed, moved or edited).</summary>
     public event EventHandler? RouteChanged;
 
+    /// <summary>Raised when a different mission was opened (from the list or read from a vehicle): the map should show it.</summary>
+    public event EventHandler? MissionOpened;
+
     public ObservableCollection<MissionSummaryResponse> Missions { get; } = [];
 
     public ObservableCollection<MissionItemViewModel> Items { get; } = [];
@@ -84,8 +87,17 @@ public sealed partial class MissionPlannerViewModel : ObservableObject
         SelectedMission = Missions.FirstOrDefault(m => m.Id == _missionId);
     }
 
+    /// <summary>The operator asked for a new mission: start from a blank plan and let them click the route on the map.</summary>
     [RelayCommand]
     private void NewMission()
+    {
+        StartBlankMission();
+        Status = "New mission: click the map to add waypoints.";
+        IsAddingWaypoints = true;
+    }
+
+    /// <summary>A minimal plan (takeoff, return) without changing how the map reacts to clicks.</summary>
+    public void StartBlankMission()
     {
         _missionId = null;
         _version = 0;
@@ -96,8 +108,8 @@ public sealed partial class MissionPlannerViewModel : ObservableObject
         Issues.Clear();
         IsFlyable = false;
         SelectedMission = null;
-        Status = "New mission: click the map to add waypoints.";
-        IsAddingWaypoints = true;
+        Status = null;
+        OnPropertyChanged(nameof(IsSaved));
     }
 
     async partial void OnSelectedMissionChanged(MissionSummaryResponse? value)
@@ -107,7 +119,11 @@ public sealed partial class MissionPlannerViewModel : ObservableObject
             return;
         }
 
-        await RunAsync(async () => Show(await _api.GetMissionAsync(value.Id, CancellationToken.None), "Loaded."));
+        await RunAsync(async () =>
+        {
+            Show(await _api.GetMissionAsync(value.Id, CancellationToken.None), "Loaded.");
+            MissionOpened?.Invoke(this, EventArgs.Empty);
+        });
     }
 
     /// <summary>Adds a waypoint at a map position, before the final return/land item so the plan stays flyable.</summary>
@@ -206,6 +222,7 @@ public sealed partial class MissionPlannerViewModel : ObservableObject
         ReplaceItems(onVehicle.Items);
         Issues.Clear();
         Status = $"Downloaded {onVehicle.Items.Count} items from {vehicle.Callsign}. Save to keep it.";
+        MissionOpened?.Invoke(this, EventArgs.Empty);
     });
 
     [RelayCommand]

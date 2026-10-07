@@ -183,9 +183,12 @@ public sealed class MissionPlannerViewModelTests
         await _planner.SaveCommand.ExecuteAsync(null);
         _planner.NewMissionCommand.Execute(null);
         await _planner.LoadMissionsAsync(Ct);
+        var opened = 0;
+        _planner.MissionOpened += (_, _) => opened++;
 
         _planner.SelectedMission = _planner.Missions[0];
 
+        opened.ShouldBe(1);
         _planner.Items.Count.ShouldBe(3);
         _planner.IsSaved.ShouldBeTrue();
 

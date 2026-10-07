@@ -35,6 +35,15 @@ public sealed class MainWindowViewModelTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Initialize_prepares_a_blank_mission_without_turning_on_click_to_add()
+    {
+        await _viewModel.InitializeAsync(Ct);
+
+        _viewModel.Planner.Items.Select(i => i.Command).ShouldBe(["Takeoff", "ReturnToLaunch"]);
+        _viewModel.Planner.IsAddingWaypoints.ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task Selecting_a_vehicle_moves_the_telemetry_subscription_and_shows_its_latest_state()
     {
         var a = DesktopTestData.Vehicle("UAV-01");

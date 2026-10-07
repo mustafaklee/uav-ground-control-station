@@ -68,8 +68,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
 
         if (Planner.Items.Count == 0)
         {
-            Planner.NewMissionCommand.Execute(null);
-            Planner.IsAddingWaypoints = false;
+            Planner.StartBlankMission();
         }
     }
 

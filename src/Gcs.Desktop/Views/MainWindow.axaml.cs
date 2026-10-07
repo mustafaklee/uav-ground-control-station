@@ -49,6 +49,7 @@ public sealed partial class MainWindow : Window
             _viewModel.PropertyChanged -= OnViewModelChanged;
             _viewModel.Planner.RouteChanged -= OnRouteChanged;
             _viewModel.Planner.PropertyChanged -= OnPlannerChanged;
+            _viewModel.Planner.MissionOpened -= OnMissionOpened;
         }
 
         _viewModel = viewModel;
@@ -58,6 +59,7 @@ public sealed partial class MainWindow : Window
             _viewModel.PropertyChanged += OnViewModelChanged;
             _viewModel.Planner.RouteChanged += OnRouteChanged;
             _viewModel.Planner.PropertyChanged += OnPlannerChanged;
+            _viewModel.Planner.MissionOpened += OnMissionOpened;
             DrawRoute();
         }
     }
@@ -95,20 +97,29 @@ public sealed partial class MainWindow : Window
 
     private void OnRouteChanged(object? sender, EventArgs e) => DrawRoute();
 
-    private void DrawRoute()
+    private void OnMissionOpened(object? sender, EventArgs e)
+    {
+        // Show the whole route; following the vehicle would immediately pan away from it.
+        FollowCheckBox.IsChecked = false;
+        _map.ZoomToMission(MissionPoints());
+    }
+
+    private void DrawRoute() => _map.ShowMission(MissionPoints());
+
+    private List<MissionMapPoint> MissionPoints()
     {
         if (_viewModel?.Planner is not { } planner)
         {
-            return;
+            return [];
         }
 
-        _map.ShowMission([.. planner.Items
+        return [.. planner.Items
             .Where(i => i.HasPosition)
             .Select(i => new MissionMapPoint(
                 i.Latitude!.Value,
                 i.Longitude!.Value,
                 (i.Index + 1).ToString(CultureInfo.InvariantCulture),
-                ReferenceEquals(i, planner.SelectedItem)))]);
+                ReferenceEquals(i, planner.SelectedItem)))];
     }
 
     private void OnMapPointerPressed(object? sender, PointerPressedEventArgs e) =>

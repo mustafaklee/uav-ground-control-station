@@ -22,6 +22,8 @@ public sealed record Error(string Code, string Message, ErrorType Type)
     public static Error ConcurrencyConflict(string code, string message) => new(code, message, ErrorType.ConcurrencyConflict);
 
     public static Error Timeout(string code, string message) => new(code, message, ErrorType.Timeout);
+
+    public static Error Unauthorized(string code, string message) => new(code, message, ErrorType.Unauthorized);
 }
 
 public enum ErrorType
@@ -40,4 +42,7 @@ public enum ErrorType
 
     /// <summary>Something outside the GCS (a vehicle) did not answer in time. The outcome is unknown, not "failed".</summary>
     Timeout,
+
+    /// <summary>The caller could not be authenticated (wrong password, expired session).</summary>
+    Unauthorized,
 }

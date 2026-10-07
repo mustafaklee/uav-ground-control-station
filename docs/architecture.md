@@ -108,6 +108,20 @@ Latest state in memory, throttled SignalR push, 1 Hz sampled history in PostgreS
 Every hand-off between the vehicle link and slower consumers goes through a bounded queue or a timer, so nothing
 downstream can stall reception. Details: [telemetry.md](telemetry.md); Redis decision: [ADR-011](adr/ADR-011-redis-evaluation-phase-4.md).
 
+## Desktop client (Phase 5)
+
+```
+MainWindow (XAML, bindings)            MapControl (Mapsui) ← VehicleMap: tiles, trail, home, heading arrow
+   │ DataContext                              ▲ position/heading changes
+MainWindowViewModel ── TelemetryViewModel ───┘   (formatting, "—" for unknown values)
+   ├── IGcsApiClient   → REST  /api/v1/vehicles...
+   ├── IRealtimeClient → SignalR /hubs/telemetry (subscribe per vehicle), /hubs/vehicles (link status)
+   └── IUiDispatcher   → marshal background events to the UI thread
+```
+
+The client references only `Gcs.Contracts`. View models are tested with fakes; the view only binds.
+Map and Avalonia version decision: [ADR-012](adr/ADR-012-desktop-map-and-avalonia-version.md).
+
 ## Cross-cutting concerns
 
 | Concern | Implementation |

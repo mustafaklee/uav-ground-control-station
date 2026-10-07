@@ -20,8 +20,8 @@ public sealed record SimulatedVehicleOptions
 
     public double RelativeAltitudeMetres { get; init; } = 100;
 
-    /// <summary>Battery percentage lost per second of flight.</summary>
-    public double BatteryDrainPercentPerSecond { get; init; } = 0.05;
+    /// <summary>Battery percentage lost per second of flight (0.02 %/s ≈ 80 minutes from full to empty).</summary>
+    public double BatteryDrainPercentPerSecond { get; init; } = 0.02;
 }
 
 /// <summary>

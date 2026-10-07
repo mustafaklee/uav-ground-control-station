@@ -23,6 +23,21 @@ internal static class Layers
     public const string Npgsql = "Npgsql";
     public const string RabbitMq = "RabbitMQ";
     public const string AspNetCore = "Microsoft.AspNetCore";
+
+    /// <summary>
+    /// Server-side ASP.NET Core (hosting, routing, MVC, hubs). The SignalR <i>client</i> also lives under
+    /// Microsoft.AspNetCore, so client applications are checked against these namespaces instead of the whole prefix.
+    /// </summary>
+    public static readonly string[] AspNetCoreServer =
+    [
+        "Microsoft.AspNetCore.Builder",
+        "Microsoft.AspNetCore.Hosting",
+        "Microsoft.AspNetCore.Routing",
+        "Microsoft.AspNetCore.Mvc",
+        "Microsoft.AspNetCore.Http.HttpResults",
+        "Microsoft.AspNetCore.SignalR.Hub",
+    ];
+
     public const string Avalonia = "Avalonia";
 
     public static readonly Assembly DomainAssembly = Gcs.Domain.AssemblyReference.Assembly;

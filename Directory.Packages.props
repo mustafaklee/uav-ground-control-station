@@ -38,11 +38,15 @@
     <PackageVersion Include="RabbitMQ.Client" Version="7.2.2" />
   </ItemGroup>
 
+  <!-- Avalonia 11.3 (not 12): Mapsui, the map control, is built and tested against 11.3. See docs/adr/ADR-012. -->
   <ItemGroup Label="Desktop">
-    <PackageVersion Include="Avalonia" Version="12.1.3" />
-    <PackageVersion Include="Avalonia.Desktop" Version="12.1.3" />
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.3" />
+    <PackageVersion Include="Avalonia" Version="11.3.22" />
+    <PackageVersion Include="Avalonia.Desktop" Version="11.3.22" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.22" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="11.3.22" />
+    <PackageVersion Include="Avalonia.Headless" Version="11.3.22" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="Mapsui.Avalonia" Version="5.1.0" />
   </ItemGroup>
 
   <ItemGroup Label="Testing">

@@ -6,13 +6,18 @@ A modular, testable ground control station (GCS) for managing multiple UAVs over
 ASP.NET Core, PostgreSQL, RabbitMQ, SignalR and Avalonia UI. It is engineered like a defence-industry product:
 reliability, safety, security and observability come before features.
 
-> **Status: Phase 4, telemetry.** Live telemetry is pushed to clients over SignalR (throttled to 5 Hz per vehicle),
+> **Status: Phase 5, desktop GCS.** The Avalonia operator client shows the fleet, a live map with the vehicle's heading
+> and track, telemetry and battery panels and a status bar, fed by REST and SignalR.
+>
+> Phase 4, telemetry: Live telemetry is pushed to clients over SignalR (throttled to 5 Hz per vehicle),
 > sampled into PostgreSQL as history, and link events reach RabbitMQ through the outbox.
 >
 > Phase 3, MAVLink: The GCS talks MAVLink 2 to vehicles over UDP/TCP or to a built-in simulator: it tracks
 > link health with heartbeats, reconnects with bounded exponential backoff and decodes live telemetry (position,
 > attitude, speed, battery, GPS, arm state, flight mode). Vehicles are managed through a versioned REST API backed by
 > PostgreSQL. SignalR push and the desktop UI arrive in the phases listed in the [roadmap](#roadmap).
+
+![GCS desktop client: live map, vehicle list, telemetry, battery and status bar](docs/images/gcs-desktop-phase5.png)
 
 ## Project overview
 
@@ -54,7 +59,7 @@ Avalonia GCS ──REST/SignalR──► Gcs.Api ──► Application ──►
 | Real-time telemetry and link status over SignalR (throttled, per-vehicle groups) | ✅ Phase 4 |
 | Telemetry history: 1 Hz sampling, batched PostgreSQL writes, retention | ✅ Phase 4 |
 | Link events (connected, lost, faulted, disconnected) to RabbitMQ via outbox | ✅ Phase 4 |
-| Avalonia operator UI | Planned (Phase 5) |
+| Avalonia operator UI: live map (heading, track, home), fleet list, telemetry, battery, status bar | ✅ Phase 5 |
 | Mission planner | Planned (Phase 6) |
 | Command system with authorization | Planned (Phase 7) |
 | Authentication, roles, audit log, rate limiting | Planned (Phase 8) |
@@ -70,7 +75,7 @@ Avalonia GCS ──REST/SignalR──► Gcs.Api ──► Application ──►
 | Persistence | PostgreSQL 18, EF Core 10, Npgsql |
 | Messaging | RabbitMQ 4 (domain events, outbox) |
 | Real time | SignalR (`/hubs/telemetry`, `/hubs/vehicles`) |
-| Desktop | Avalonia UI 12, CommunityToolkit.Mvvm |
+| Desktop | Avalonia UI 11.3, Mapsui 5 (OpenStreetMap), CommunityToolkit.Mvvm, SignalR client ([ADR-012](docs/adr/ADR-012-desktop-map-and-avalonia-version.md)) |
 | MAVLink | Own MAVLink 2 codec, golden-tested against pymavlink ([ADR-010](docs/adr/ADR-010-own-mavlink-codec.md)) |
 | Logging | Serilog |
 | Testing | xUnit v3 (Microsoft.Testing.Platform), Shouldly, NetArchTest, Testcontainers |
@@ -104,6 +109,16 @@ dotnet ef migrations add <Name> --project src/Gcs.Persistence --startup-project 
 
 In Development the API applies migrations on startup. In Docker the `gcs-migrator` container applies them before the
 API starts. See [ADR-009](docs/adr/ADR-009-database-migrations.md).
+
+### Desktop client
+
+```bash
+dotnet run --project src/Gcs.Desktop                              # backend at http://localhost:8080/
+dotnet run --project src/Gcs.Desktop -- --api http://10.0.0.5:8080/
+```
+
+The client keeps retrying if the backend is not up yet. Select a vehicle to see it on the map; Connect/Disconnect
+start and stop its MAVLink link. Map data © OpenStreetMap contributors.
 
 ### Docker setup
 
@@ -224,7 +239,7 @@ rate limiting, secure headers, HTTPS and audit logging arrive in Phase 8.
 | 2 | Vehicle domain, persistence, CRUD API ✅ |
 | 3 | MAVLink abstraction, UDP transport, simulator, heartbeat, connection lifecycle ✅ |
 | 4 | Telemetry processing, latest state, SignalR ✅ |
-| 5 | Avalonia GCS |
+| 5 | Avalonia GCS ✅ |
 | 6 | Mission planner |
 | 7 | Command system |
 | 8 | Security |

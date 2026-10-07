@@ -142,14 +142,15 @@
                          Foreground="{Binding LastResultIsError, Converter={x:Static vm:ResultBrush.Instance}}"
                          IsVisible="{Binding LastResult, Converter={x:Static ObjectConverters.IsNotNull}}" />
               <TextBlock Classes="label" Text="Recent commands" Margin="0,4,0,0" />
+              <!-- Mode=OneWay: Run.Text binds two-way by default and would write "by pilot-1" back into the entry. -->
               <ItemsControl ItemsSource="{Binding History}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="cmd:CommandAuditResponse">
                     <TextBlock FontSize="11" Foreground="#8A9AAB" TextTrimming="CharacterEllipsis">
-                      <Run Text="{Binding RequestedAt, StringFormat='{}{0:HH:mm:ss}'}" />
-                      <Run Text="{Binding Command}" Foreground="#E6EDF3" />
-                      <Run Text="{Binding Outcome}" Foreground="{Binding Outcome, Converter={x:Static vm:OutcomeBrush.Instance}}" />
-                      <Run Text="{Binding Operator, StringFormat='by {0}'}" />
+                      <Run Text="{Binding RequestedAt, Mode=OneWay, StringFormat='{}{0:HH:mm:ss}'}" />
+                      <Run Text="{Binding Command, Mode=OneWay}" Foreground="#E6EDF3" />
+                      <Run Text="{Binding Outcome, Mode=OneWay}" Foreground="{Binding Outcome, Converter={x:Static vm:OutcomeBrush.Instance}}" />
+                      <Run Text="{Binding Operator, Mode=OneWay, StringFormat='by {0}'}" />
                     </TextBlock>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -266,8 +267,8 @@
                       <ComboBox.ItemTemplate>
                         <DataTemplate x:DataType="contracts:MissionSummaryResponse">
                           <TextBlock>
-                            <Run Text="{Binding Name}" />
-                            <Run Text="{Binding ItemCount, StringFormat=' · {0} items'}" Foreground="#8A9AAB" />
+                            <Run Text="{Binding Name, Mode=OneWay}" />
+                            <Run Text="{Binding ItemCount, Mode=OneWay, StringFormat=' · {0} items'}" Foreground="#8A9AAB" />
                           </TextBlock>
                         </DataTemplate>
                       </ComboBox.ItemTemplate>

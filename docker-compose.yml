@@ -128,6 +128,8 @@ services:
       Simulator__GcsHost: gcs-api
       Simulator__GcsPort: "14550"
       Simulator__SystemId: "1"
+      # A SiK-style telemetry radio next to it (RADIO_STATUS), so the link quality line shows RSSI (Phase 12).
+      Simulator__SimulateRadio: "true"
     depends_on:
       gcs-api:
         condition: service_started

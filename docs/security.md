@@ -103,10 +103,26 @@ the server ends the session (expired, revoked, deactivated), the client returns 
 
 ![Signed in as an operator](images/gcs-desktop-phase8-signed-in.png)
 
+## Deployment (Phase 11)
+
+On a server the API sits behind Nginx ([deployment.md](deployment.md), [ADR-018](adr/ADR-018-deployment.md)):
+
+* **TLS** 1.2/1.3 only, HTTP/2, HSTS for two years, no TLS handshake for unknown host names. Certificates from
+  Let's Encrypt (port 80 opened only during the challenge) or an internal CA (ECDSA P-256).
+* **Forwarded headers:** with `ReverseProxy:Enabled` the API takes the client address and scheme from
+  `X-Forwarded-For`/`X-Forwarded-Proto`, **only** on connections from `ReverseProxy:TrustedNetworks` (in production
+  Nginx's fixed address, `172.30.0.10/32`). Otherwise every client would share the proxy's login rate-limit bucket, or anyone could fake an address.
+  Nginx overwrites `X-Forwarded-For` rather than appending to it.
+* **Exposure:** UFW allows 443/tcp, the MAVLink UDP port and rate-limited SSH. Compose publishes only those two ports
+  (Docker bypasses UFW for published ports). PostgreSQL and RabbitMQ are on an `internal` network.
+* **Secrets** are generated on the server into `/etc/gcs/gcs.env` (0600 root) and kept across re-installs.
+* **Backups** (`/var/backups/gcs`, 0700) contain password hashes and the audit log: root only, copy them off the host.
+
 ## Not yet covered
 
 * Instant revocation of access tokens (today: within 15 minutes). See ADR-015.
-* TLS certificates and forwarded headers behind a proxy (Phase 11).
 * Shared rate-limit counters and leases for several API instances.
+* MAVLink over UDP is neither authenticated nor encrypted; restricting it to the vehicles' network and MAVLink 2
+  signing are Phase 12 topics.
 * A security audit table for logins and user changes. Today they are structured log events (`Login failed for {Username}`,
   refresh-token reuse), shipped to the log store in Phase 9.

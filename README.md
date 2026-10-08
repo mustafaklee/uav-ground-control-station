@@ -97,6 +97,8 @@ Avalonia GCS ──REST/SignalR──► Gcs.Api ──► Application ──►
 | Health monitoring (`/health/details`: links, outbox backlog, history), Aspire dashboard in compose | ✅ Phase 9 |
 | Real PX4 SITL (SIH, headless) in Docker over MAVLink/UDP, opt-in compose profile | ✅ Phase 10 |
 | Takeoff → mission → RTL flight test against real PX4, own CI job | ✅ Phase 10 |
+| One-command install on Ubuntu Server 24.04: Docker Compose, Nginx (TLS, HTTP/2, WebSocket, rate limit), UFW | ✅ Phase 11 |
+| Let's Encrypt or internal CA, trusted forwarded headers, daily verified `pg_dump` with retention and restore | ✅ Phase 11 |
 
 ## Technology stack
 
@@ -220,7 +222,17 @@ dotnet test --project tests/Gcs.IntegrationTests  # needs Docker (Testcontainers
 
 ## Deployment
 
-Planned for Phase 11: Ubuntu Server with Nginx (TLS termination), the API container, PostgreSQL, RabbitMQ and Redis.
+One command on a clean Ubuntu Server 24.04 host:
+
+```bash
+sudo git clone https://github.com/mustafaklee/uav-ground-control-station.git /opt/gcs
+sudo /opt/gcs/deploy/install.sh --domain gcs.example.com --tls letsencrypt --email ops@example.com
+# closed network: --tls internal (own CA; install /etc/gcs/ca/ca.crt on the operator machines)
+```
+
+It installs Docker, generates secrets on the server, issues the certificate, opens only 443/tcp and the MAVLink UDP
+port in UFW, starts the stack behind Nginx and schedules daily database backups. `deploy/test/verify-install.sh` proves
+it in a throwaway Ubuntu container. Details: [docs/deployment.md](docs/deployment.md), [ADR-018](docs/adr/ADR-018-deployment.md).
 
 ## MAVLink integration
 
@@ -280,7 +292,8 @@ Published events go to the `gcs.events` topic exchange with routing keys such as
 
 No secrets in the repository, non-root container user, services bound to localhost, validated configuration. Since
 Phase 8: JWT sign-in with rotating refresh tokens, permission-based authorization, rate limiting, security headers and
-an append-only command audit log. HTTPS termination arrives with the deployment in Phase 11. Details:
+an append-only command audit log. Since Phase 11: TLS 1.2/1.3 at Nginx with HSTS, forwarded headers trusted only from
+the proxy network, a firewall with two open ports and databases on an internal network. Details:
 [docs/security.md](docs/security.md).
 
 ## Roadmap
@@ -298,7 +311,7 @@ an append-only command audit log. HTTPS termination arrives with the deployment 
 | 8 | Security ✅ |
 | 9 | Observability ✅ |
 | 10 | PX4 SITL ✅ |
-| 11 | Deployment |
+| 11 | Deployment ✅ |
 | 12 | Advanced networking |
 
 ## Contributing

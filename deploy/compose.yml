@@ -1,0 +1,161 @@
+# Production stack for one Ubuntu Server 24.04 host (Phase 11). Installed and started by deploy/install.sh; see
+# docs/deployment.md. Not for local development: use the docker-compose.yml in the repository root for that.
+#
+#   gcs-compose ps | logs -f gcs-api | up -d --wait      (gcs-compose = docker compose with the right files)
+#
+# What the outside world can reach, and nothing else:
+#   443/tcp                 Nginx: TLS termination, WebSocket upgrade for SignalR, rate limit → gcs-api:8080
+#   GCS_MAVLINK_PORT/udp    MAVLink from the vehicles, straight to gcs-api
+# Docker publishes ports past UFW (it writes its own iptables rules), so the firewall cannot hide a port that is
+# published here. That is why no other service has a "ports:" entry, except the dashboard on 127.0.0.1 (SSH tunnel).
+#
+# Every value comes from /etc/gcs/gcs.env, written by install.sh (secrets generated on the server, never in git).
+
+name: gcs
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 10s
+  timeout: 5s
+  retries: 12
+  start_period: 20s
+
+x-logging: &logging
+  # Bounded container logs, so a chatty service cannot fill the disk.
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?}
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    networks: [backend]
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+
+  rabbitmq:
+    # No management plugin in production: one less web UI to secure.
+    image: rabbitmq:4-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks: [backend]
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+
+  # Traces, metrics and logs (OTLP). Reachable only from the server itself: ssh -L 18888:127.0.0.1:18888 <server>,
+  # then http://localhost:18888. It asks for the login token printed in its log: gcs-compose logs otel-dashboard.
+  otel-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.6
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      Dashboard__Otlp__AuthMode: Unsecured # the OTLP port is only on the internal network
+    ports:
+      - "127.0.0.1:18888:18888"
+    networks: [backend, ops]
+
+  gcs-migrator:
+    build:
+      context: ..
+      dockerfile: docker/Gcs.Migrator.Dockerfile
+    image: gcs-migrator:${GCS_VERSION:-local}
+    restart: "no"
+    logging: *logging
+    environment:
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+    networks: [backend]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  gcs-api:
+    build:
+      context: ..
+      dockerfile: docker/Gcs.Api.Dockerfile
+    image: gcs-api:${GCS_VERSION:-local}
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      RabbitMq__HostName: rabbitmq
+      RabbitMq__UserName: ${RABBITMQ_USER}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?}
+      Security__BootstrapAdministrator__Username: ${GCS_ADMIN_USERNAME:-admin}
+      Security__BootstrapAdministrator__Password: ${GCS_ADMIN_PASSWORD:-}
+      Observability__OtlpEndpoint: http://otel-dashboard:18889
+      # Nginx is the only client of port 8080. Trust X-Forwarded-For/Proto from Nginx's address only: not the whole
+      # proxy network, whose gateway (.1) is the host itself.
+      ReverseProxy__Enabled: "true"
+      ReverseProxy__TrustedNetworks__0: ${GCS_PROXY_ADDRESS:-172.30.0.10}/32
+    ports:
+      # MAVLink. Register vehicles with transport Udp, host 0.0.0.0 and this port.
+      - "${GCS_MAVLINK_PORT:-14550}:${GCS_MAVLINK_PORT:-14550}/udp"
+    networks: [backend, proxy]
+    depends_on:
+      gcs-migrator:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      otel-dashboard:
+        condition: service_started
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && head -n 1 <&3 | grep -q ' 200 '"]
+
+  nginx:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      # The image renders /etc/nginx/templates/*.template into conf.d at start, with these variables only.
+      GCS_DOMAIN: ${GCS_DOMAIN:?}
+      NGINX_ENVSUBST_FILTER: ^GCS_
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - /etc/gcs/tls:/etc/nginx/tls:ro
+    ports:
+      - "443:443"
+    networks:
+      proxy:
+        ipv4_address: ${GCS_PROXY_ADDRESS:-172.30.0.10}
+    depends_on:
+      gcs-api:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      # Through Nginx to the API, on a loopback-only plain HTTP listener (see the template).
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8081/health/live"]
+
+networks:
+  # Databases, broker, the API and the dashboard. Internal: no route to or from the outside.
+  backend:
+    internal: true
+  # Only for publishing the dashboard on 127.0.0.1 (ports on an internal network are not published).
+  ops:
+  # Nginx ↔ API. A fixed subnet, so Nginx can have a fixed address the API trusts forwarded headers from.
+  proxy:
+    ipam:
+      config:
+        - subnet: ${GCS_PROXY_SUBNET:-172.30.0.0/24}
+
+volumes:
+  postgres-data:
+  rabbitmq-data:

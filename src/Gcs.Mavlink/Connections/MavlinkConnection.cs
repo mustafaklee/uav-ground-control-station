@@ -45,6 +45,7 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
     private readonly Lock _gate = new();
     private readonly VehicleConnection _state;
     private readonly MavlinkFrameParser _parser = new();
+    private readonly LinkQualityMonitor _quality;
     private readonly CancellationTokenSource _stop = new();
     private readonly SemaphoreSlim _missionGate = new(1, 1);
 
@@ -83,6 +84,7 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
         _metrics = metrics ?? GcsMetrics.Unobserved;
         _vehicleTag = new(GcsTracing.VehicleId, target.VehicleId.Value.ToString());
         _state = new VehicleConnection(target.VehicleId, options.MaxReconnectAttempts);
+        _quality = new LinkQualityMonitor(time);
     }
 
     public VehicleLinkTarget Target => _target;
@@ -294,10 +296,28 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
                 frames = _parser.Parse(buffer.AsSpan(0, read));
             }
 
+            var fromVehicle = false;
             foreach (var frame in frames)
             {
+                // A telemetry radio reports on itself with its own system id (SiK: 51), so it is taken from anyone.
+                if (frame.MessageId == RadioStatusMessage.Id && MavlinkCodec.TryDecode(frame, out var radio))
+                {
+                    lock (_gate)
+                    {
+                        _quality.RecordRadio((RadioStatusMessage)radio!);
+                    }
+
+                    continue;
+                }
+
                 // Ignore other vehicles on a shared link and other GCS instances; only our vehicle's frames count.
-                if (frame.SystemId != _target.SystemId.Value || !MavlinkCodec.TryDecode(frame, out var message))
+                if (frame.SystemId != _target.SystemId.Value)
+                {
+                    continue;
+                }
+
+                fromVehicle = true;
+                if (!MavlinkCodec.TryDecode(frame, out var message))
                 {
                     continue;
                 }
@@ -305,6 +325,12 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
                 _metrics.MavlinkFrames.Add(1, _vehicleTag);
 
                 Handle(message!);
+            }
+
+            lock (_gate)
+            {
+                var totals = _parser.Statistics;
+                _quality.RecordTotals(totals.FramesReceived + totals.UnknownMessages, totals.FramesLost, fromVehicle);
             }
         }
     }
@@ -315,6 +341,16 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
         {
             // Mission protocol replies belong to the transfer in progress, if any; otherwise they are stale and dropped.
             _missionInbox?.Writer.TryWrite(message);
+            return;
+        }
+
+        if (message is TimesyncMessage timesync)
+        {
+            lock (_gate)
+            {
+                _quality.RecordTimesync(timesync);
+            }
+
             return;
         }
 
@@ -365,9 +401,14 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
         do
         {
             var frame = MavlinkCodec.Encode(heartbeat, NextSequence(), (byte)_options.GcsSystemId, MavComponent.MissionPlanner);
+
+            // A TIMESYNC request with every heartbeat: the vehicle echoes our clock, which gives the round-trip time.
+            var timesync = MavlinkCodec.Encode(
+                new TimesyncMessage(0, _quality.NowNanoseconds()), NextSequence(), (byte)_options.GcsSystemId, MavComponent.MissionPlanner);
             try
             {
                 await transport.SendAsync(frame, session);
+                await transport.SendAsync(timesync, session);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -583,7 +624,7 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
             _state.LastHeartbeatAt,
             _state.ReconnectAttempts,
             _state.FaultReason,
-            new LinkQuality(stats.FramesReceived, stats.FramesLost, stats.PacketLossRatio, stats.CrcErrors));
+            _quality.Snapshot(stats, _state.State));
     }
 
     private static async Task Quietly(Task task)

@@ -11,7 +11,33 @@ public sealed record VehicleLinkResponse(
     string? FaultReason,
     LinkQualityDto Quality);
 
-public sealed record LinkQualityDto(long FramesReceived, long FramesLost, double PacketLossRatio, long CrcErrors);
+/// <summary>
+/// Link quality (Phase 12, ADR-019). Totals cover the whole link; <c>Recent*</c> and <c>MessagesPerSecond</c> the last
+/// 10 seconds. <c>Grade</c> is one of Lost, Poor, Fair, Good. <c>RoundTripMilliseconds</c> is null until the vehicle
+/// answered a TIMESYNC; <c>Radio</c> is null unless a MAVLink telemetry radio reports on the link.
+/// </summary>
+public sealed record LinkQualityDto(
+    long FramesReceived,
+    long FramesLost,
+    double PacketLossRatio,
+    long CrcErrors,
+    double RecentPacketLossRatio = 0,
+    double MessagesPerSecond = 0,
+    double? RoundTripMilliseconds = null,
+    DateTimeOffset? LastFrameAt = null,
+    string Grade = "Lost",
+    RadioStatusDto? Radio = null);
+
+/// <summary>A telemetry radio's RADIO_STATUS: signal and noise here and at the remote end, in the radio's units (SiK: 0-255).</summary>
+public sealed record RadioStatusDto(
+    int Rssi,
+    int RemoteRssi,
+    int Noise,
+    int RemoteNoise,
+    int ReceiveErrors,
+    int Corrected,
+    int TxBufferPercent,
+    DateTimeOffset ReceivedAt);
 
 /// <summary>Latest telemetry of a vehicle. Parts the vehicle has not reported yet are null.</summary>
 public sealed record TelemetryResponse(

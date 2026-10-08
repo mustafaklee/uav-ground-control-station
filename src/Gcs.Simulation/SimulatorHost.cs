@@ -32,6 +32,7 @@ internal sealed partial class SimulatorHost(IOptions<SimulatorOptions> options, 
             OrbitRadiusMetres = settings.OrbitRadiusMetres,
             SpeedMetresPerSecond = settings.SpeedMetresPerSecond,
             StartAirborne = settings.StartAirborne,
+            SimulateRadio = settings.SimulateRadio,
         });
 
         await using var transport = UdpMavlinkTransport.Connect(gcs);

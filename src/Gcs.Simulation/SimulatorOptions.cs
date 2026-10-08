@@ -30,4 +30,7 @@ public sealed class SimulatorOptions
 
     /// <summary>True: start armed and circling. False: start disarmed on the ground, to try ARM and TAKEOFF.</summary>
     public bool StartAirborne { get; init; } = true;
+
+    /// <summary>True: also simulate a SiK telemetry radio (RADIO_STATUS at 1 Hz, signal weakening with distance).</summary>
+    public bool SimulateRadio { get; init; }
 }

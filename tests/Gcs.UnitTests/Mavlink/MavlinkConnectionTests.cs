@@ -262,7 +262,62 @@ public sealed class MavlinkConnectionTests : IAsyncDisposable
         (await after).Status.ShouldBe(CommandDeliveryStatus.Accepted);
     }
 
+    [Fact]
+    public async Task The_gcs_sends_timesync_requests_and_the_echo_gives_the_round_trip()
+    {
+        await ConnectAsync();
+
+        var request = await ReceiveFromGcsAsync<TimesyncMessage>();
+        await AdvanceAsync(TimeSpan.FromMilliseconds(150));
+        await SendFromVehicleAsync(new TimesyncMessage(42_000_000_000, request.Ts1));
+
+        request.IsRequest.ShouldBeTrue();
+        await EventuallyAsync(() => _connection.GetStatus().Quality.RoundTripMilliseconds is not null);
+        _connection.GetStatus().Quality.RoundTripMilliseconds!.Value.ShouldBe(150, tolerance: 1);
+    }
+
+    [Fact]
+    public async Task Radio_status_is_taken_from_the_radio_although_it_is_another_system()
+    {
+        await ConnectAsync();
+
+        await SendFromVehicleAsync(new RadioStatusMessage(150, 140, 100, 45, 47, 3, 1), systemId: 51);
+
+        await EventuallyAsync(() => _connection.GetStatus().Quality.Radio is not null);
+        _connection.GetStatus().Quality.Radio!.Rssi.ShouldBe(150);
+        _connection.State.ShouldBe(ConnectionState.Connected);
+    }
+
+    [Fact]
+    public async Task A_connected_link_with_fresh_frames_is_graded()
+    {
+        await ConnectAsync();
+
+        _connection.GetStatus().Quality.Grade.ShouldBe(LinkQualityGrade.Good);
+    }
+
     public async ValueTask DisposeAsync() => await _connection.DisposeAsync();
+
+    /// <summary>Reads what the GCS sent until a message of type <typeparamref name="T"/> arrives.</summary>
+    private async Task<T> ReceiveFromGcsAsync<T>()
+        where T : IMavlinkMessage
+    {
+        var parser = new MavlinkFrameParser();
+        var buffer = new byte[2048];
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(5));
+        while (true)
+        {
+            var read = await _link.VehicleSide.ReceiveAsync(buffer, timeout.Token);
+            foreach (var frame in parser.Parse(buffer.AsSpan(0, read)))
+            {
+                if (MavlinkCodec.TryDecode(frame, out var message) && message is T wanted)
+                {
+                    return wanted;
+                }
+            }
+        }
+    }
 
     private async Task ConnectAsync()
     {

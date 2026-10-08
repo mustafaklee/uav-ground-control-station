@@ -35,6 +35,12 @@ public sealed record SimulatedVehicleOptions
 
     /// <summary>Altitude for a takeoff started by switching to AUTO.TAKEOFF (PX4 calls this MIS_TAKEOFF_ALT).</summary>
     public double DefaultTakeoffAltitudeMetres { get; init; } = 10;
+
+    /// <summary>
+    /// True: a SiK-style telemetry radio is simulated next to the vehicle, sending RADIO_STATUS at 1 Hz with a signal that
+    /// weakens with distance from home (Phase 12).
+    /// </summary>
+    public bool SimulateRadio { get; init; }
 }
 
 /// <summary>What the simulated vehicle is doing.</summary>
@@ -215,6 +221,20 @@ public sealed class SimulatedVehicle
         }
     }
 
+    /// <summary>
+    /// The simulated radio's report: about 200 (of 255) next to home, falling 1 step per 10 m, never below 20.
+    /// Noise stays around 40, so the margin (RSSI − noise) shrinks as the vehicle flies away, as with a real radio.
+    /// </summary>
+    public RadioStatusMessage RadioStatus()
+    {
+        lock (_gate)
+        {
+            var distance = Math.Sqrt((_north * _north) + (_east * _east));
+            var rssi = (byte)Math.Clamp(200 - (distance / 10), 20, 255);
+            return new RadioStatusMessage(rssi, (byte)Math.Max(20, rssi - 4), 100, 40, 42, 0, 0);
+        }
+    }
+
     public HeartbeatMessage Heartbeat()
     {
         lock (_gate)
@@ -292,10 +312,16 @@ public sealed class SimulatedVehicle
                     new MissionCountMessage(senderSystem, senderComponent, (ushort)_mission.Count),
                 MissionRequestIntMessage request when request.TargetSystem == Options.SystemId && request.Seq < _mission.Count =>
                     _mission[request.Seq] with { TargetSystem = senderSystem, TargetComponent = senderComponent },
+
+                // Like PX4: answer a TIMESYNC request with our clock in tc1 and the requester's ts1 echoed back.
+                TimesyncMessage { IsRequest: true } request => new TimesyncMessage(MonotonicNanoseconds(), request.Ts1),
                 _ => null,
             };
         }
     }
+
+    private static long MonotonicNanoseconds() =>
+        Math.Max(1, (long)(System.Diagnostics.Stopwatch.GetTimestamp() * (1_000_000_000.0 / System.Diagnostics.Stopwatch.Frequency)));
 
     private static uint Px4Mode(byte main, byte sub) => ((uint)main << 16) | ((uint)sub << 24);
 

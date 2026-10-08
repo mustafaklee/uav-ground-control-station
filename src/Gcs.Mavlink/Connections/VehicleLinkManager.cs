@@ -110,7 +110,13 @@ internal sealed class VehicleLinkManager(
         }
 
         var target = connection.Target;
-        var messages = MissionItemMapper.ToMavlink(items, target.Autopilot, target.SystemId.Value, MavComponent.Autopilot1);
+        var here = connection.LastPosition;
+        if (here is null && MissionItemMapper.NeedsVehiclePosition(items))
+        {
+            return MavlinkConnection.PositionUnknown;
+        }
+
+        var messages = MissionItemMapper.ToMavlink(items, target.Autopilot, target.SystemId.Value, MavComponent.Autopilot1, here);
         return await connection.UploadMissionAsync(messages, cancellationToken);
     }
 

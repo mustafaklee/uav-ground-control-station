@@ -61,7 +61,7 @@ internal sealed class TelemetryHistoryStore(GcsDbContext db) : ITelemetryHistory
         r.RecordedAt,
         r is { Latitude: { } lat, Longitude: { } lon } ? new GeoPosition(lat, lon, r.AltitudeMsl ?? 0, r.RelativeAltitude ?? 0) : null,
         r is { Roll: { } roll, Pitch: { } pitch, Yaw: { } yaw } ? new AttitudeAngles(roll, pitch, yaw) : null,
-        r is { GroundSpeed: { } gs } ? new MotionState(gs, r.AirSpeed ?? 0, r.ClimbRate ?? 0, r.Heading ?? 0) : null,
+        r is { GroundSpeed: { } gs } ? new MotionState(gs, r.AirSpeed, r.ClimbRate ?? 0, r.Heading ?? 0) : null,
         r.BatteryVoltage is not null || r.BatteryCurrent is not null || r.BatteryRemainingPercent is not null
             ? new BatteryState(r.BatteryVoltage, r.BatteryCurrent, r.BatteryRemainingPercent)
             : null,

@@ -10,7 +10,7 @@ the MAVLink mission protocol carries them to the vehicle.
 
 | Command | Position | Altitude | Other |
 |---|---|---|---|
-| `Takeoff` | optional (none means "here") | required | |
+| `Takeoff` | optional (none means "here", see below) | required | |
 | `Waypoint` | required | required | optional `speed` (m/s) from this item on |
 | `Loiter` | required | required | `holdSeconds` > 0 |
 | `ReturnToLaunch` | none | none | flies to home |
@@ -64,6 +64,12 @@ Upload and download errors:
 | `409 vehicle.mission.transfer_in_progress` | Another transfer to this vehicle is running; one at a time per vehicle |
 | `409 vehicle.mission.no_response` | The vehicle stopped answering |
 | `409 vehicle.mission.rejected` | The vehicle answered `MISSION_ACK` with an error |
+| `409 vehicle.mission.position_unknown` | The mission has a takeoff or land "here", but the vehicle has not reported its position yet |
+
+**"Here" on upload.** MISSION_ITEM_INT has no "unset" value for its integer coordinates, and PX4 takes 0/0 literally
+(it would fly towards 0° N 0° E). So the GCS resolves "here" when it uploads: a takeoff gets the vehicle's last
+reported position, a land the position of the item before it, which is where the vehicle will be by then. A mission
+read back from the vehicle therefore shows these coordinates. Found with PX4 SITL ([px4-sitl.md](px4-sitl.md)).
 
 ## MAVLink mission protocol
 

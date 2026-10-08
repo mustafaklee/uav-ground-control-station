@@ -85,4 +85,32 @@ public sealed class MissionItemMapperTests
 
         items.ShouldBe(Plan);
     }
+
+    [Fact]
+    public void Takeoff_here_gets_the_vehicle_position_and_land_here_the_position_before_it()
+    {
+        // PX4 reads 0/0 literally; with it, PX4 SITL flew towards 0° N 0° E ("first waypoint 5548 km from home").
+        MissionItem[] plan =
+        [
+            MissionItem.Create(MissionCommand.Takeoff, altitude: 20).Value,
+            MissionItem.Create(MissionCommand.Waypoint, 39.9265, 32.8672, 25).Value,
+            MissionItem.Create(MissionCommand.Land).Value,
+        ];
+
+        var messages = MissionItemMapper.ToMavlink(plan, AutopilotType.Px4, 1, 1, vehiclePosition: (399255330, 328662870));
+
+        (messages[0].X, messages[0].Y).ShouldBe((399255330, 328662870));
+        (messages[2].X, messages[2].Y).ShouldBe((399265000, 328672000));
+    }
+
+    [Fact]
+    public void Only_a_here_item_before_any_position_needs_the_vehicle_position()
+    {
+        var land = MissionItem.Create(MissionCommand.Land).Value;
+        var waypoint = MissionItem.Create(MissionCommand.Waypoint, 39.9265, 32.8672, 25).Value;
+
+        MissionItemMapper.NeedsVehiclePosition(Plan).ShouldBeTrue(); // starts with a takeoff "here"
+        MissionItemMapper.NeedsVehiclePosition([waypoint, land]).ShouldBeFalse();
+        MissionItemMapper.NeedsVehiclePosition([MissionItem.Create(MissionCommand.ReturnToLaunch).Value, land]).ShouldBeTrue();
+    }
 }

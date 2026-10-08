@@ -51,6 +51,27 @@ public sealed class TranslationTests
     }
 
     [Fact]
+    public void Nan_air_speed_from_a_vehicle_without_an_air_speed_sensor_becomes_null()
+    {
+        // What PX4 SITL sends for a quadcopter: no air speed sensor, so air speed is NaN.
+        var message = new VfrHudMessage(float.NaN, 4.5f, 90, 40, 950f, 1.25f);
+
+        var motion = TelemetryTranslator.Translate(message, Now)!.Motion!;
+
+        motion.ShouldBe(new MotionState(4.5, null, 1.25, 90));
+    }
+
+    [Theory]
+    [InlineData(float.NaN)]
+    [InlineData(float.PositiveInfinity)]
+    public void Messages_whose_values_are_not_numbers_yet_carry_no_telemetry(float value)
+    {
+        // NaN or infinity cannot be serialized to JSON; a half-initialized estimator's message is dropped instead.
+        TelemetryTranslator.Translate(new AttitudeMessage(0, value, 0, 0, 0, 0, 0), Now).ShouldBeNull();
+        TelemetryTranslator.Translate(new VfrHudMessage(0, value, 0, 0, 0, 0), Now).ShouldBeNull();
+    }
+
+    [Fact]
     public void Heartbeat_becomes_arm_state_and_flight_mode()
     {
         var message = new HeartbeatMessage(MavType.Quadrotor, MavAutopilot.Px4,

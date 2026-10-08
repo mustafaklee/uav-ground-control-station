@@ -51,6 +51,38 @@ jobs:
       - name: Integration tests
         run: dotnet test --project tests/Gcs.IntegrationTests --configuration $CONFIGURATION --no-build
 
+  # Phase 10: a real PX4 autopilot (SITL, headless) flies takeoff → mission → RTL against the API.
+  # A separate job so a slow PX4 download cannot hold up the two required checks; see docs/px4-sitl.md.
+  px4-sitl:
+    name: PX4 SITL flight
+    runs-on: ubuntu-24.04
+    needs: build-and-test
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup .NET (version from global.json)
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: Directory.Packages.props
+
+      - name: Pull the PX4 SITL image
+        run: |
+          image=$(sed -nE 's/^FROM (.+)$/\1/p' docker/px4-sitl/Dockerfile)
+          for i in 1 2 3 4; do docker pull "$image" && exit 0; sleep $((2 ** i)); done
+          exit 1
+
+      - name: Build
+        run: dotnet build tests/Gcs.IntegrationTests --configuration $CONFIGURATION
+
+      - name: Fly takeoff, mission and RTL with PX4 SITL
+        env:
+          GCS_PX4_SITL: "1"
+        run: dotnet test --project tests/Gcs.IntegrationTests --configuration $CONFIGURATION --no-build -- --filter-trait "Category=Sitl"
+
   docker:
     name: Docker build and compose smoke test
     runs-on: ubuntu-24.04

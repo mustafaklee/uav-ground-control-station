@@ -10,6 +10,10 @@ namespace Gcs.Mavlink.Translation;
 /// <list type="bullet">
 /// <item>ArduPilot reserves sequence 0 for the home position (it overwrites whatever is sent there), so a placeholder is
 /// prepended on upload and dropped on download. PX4 uses sequence 0 for the first real item.</item>
+/// <item>A takeoff or land without a position means "here". MAVLink has no "unset" value for the integer coordinates
+/// of MISSION_ITEM_INT, and PX4 takes 0/0 literally: it would fly towards 0° N 0° E (found with PX4 SITL in Phase 10).
+/// So "here" is resolved on upload: a takeoff gets the vehicle's position, a land the position of the item before it
+/// (where the vehicle will be by then), or the vehicle's position when nothing before it has one.</item>
 /// <item>Speed is not part of a waypoint in MAVLink; a DO_CHANGE_SPEED item is inserted before the first item that
 /// changes it, and folded back into the following item on download.</item>
 /// </list>
@@ -24,8 +28,33 @@ public static class MissionItemMapper
     /// <summary>"Unset" for parameters such as yaw: the autopilot keeps its own choice.</summary>
     private static readonly float Unset = float.NaN;
 
+    /// <summary>True when an item means "here" and resolving it needs the vehicle's position.</summary>
+    public static bool NeedsVehiclePosition(IReadOnlyList<MissionItem> items)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        foreach (var item in items)
+        {
+            if (item.HasPosition)
+            {
+                return false; // every later "here" resolves to this or a later position
+            }
+
+            if (item.Command is MissionCommand.Takeoff or MissionCommand.Land)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Builds the upload. <paramref name="vehiclePosition"/> (1e-7 degrees) is where the vehicle is now, used to resolve "here".</summary>
     public static IReadOnlyList<MissionItemIntMessage> ToMavlink(
-        IReadOnlyList<MissionItem> items, AutopilotType autopilot, byte targetSystem, byte targetComponent)
+        IReadOnlyList<MissionItem> items,
+        AutopilotType autopilot,
+        byte targetSystem,
+        byte targetComponent,
+        (int LatitudeE7, int LongitudeE7)? vehiclePosition = null)
     {
         ArgumentNullException.ThrowIfNull(items);
         var messages = new List<MissionItemIntMessage>();
@@ -35,6 +64,7 @@ public static class MissionItemMapper
         }
 
         double? currentSpeed = null;
+        var here = vehiclePosition ?? (0, 0);
         foreach (var item in items)
         {
             if (item.Speed is { } speed && speed != currentSpeed)
@@ -43,7 +73,12 @@ public static class MissionItemMapper
                 currentSpeed = speed;
             }
 
-            messages.Add(ToMavlink(item));
+            if (item.HasPosition)
+            {
+                here = ((int)Math.Round(item.Latitude!.Value * E7), (int)Math.Round(item.Longitude!.Value * E7));
+            }
+
+            messages.Add(ToMavlink(item, here));
         }
 
         return [.. messages.Select((m, seq) => m with
@@ -78,11 +113,10 @@ public static class MissionItemMapper
         return items;
     }
 
-    private static MissionItemIntMessage ToMavlink(MissionItem item)
+    /// <summary><paramref name="here"/> is the item's own position, or where the vehicle will be when it reaches an item without one.</summary>
+    private static MissionItemIntMessage ToMavlink(MissionItem item, (int X, int Y) here)
     {
-        var (x, y) = item.HasPosition
-            ? ((int)Math.Round(item.Latitude!.Value * E7), (int)Math.Round(item.Longitude!.Value * E7))
-            : (0, 0); // 0/0 = "where the vehicle is" for takeoff and land
+        var (x, y) = here;
         var z = (float)(item.Altitude ?? 0);
         var hold = (float)(item.HoldSeconds ?? 0);
         return item.Command switch

@@ -102,6 +102,8 @@ services:
       - "127.0.0.1:8080:8080"
       # MAVLink from vehicles/SITL on the host. Register a vehicle with transport Udp, host 0.0.0.0, port 14550.
       - "127.0.0.1:14550:14550/udp"
+      # MAVLink from PX4 SITL (Phase 10). Register it with transport Udp, host 0.0.0.0, port 14560, system id 10.
+      - "127.0.0.1:14560:14560/udp"
     depends_on:
       gcs-migrator:
         condition: service_completed_successfully
@@ -129,6 +131,28 @@ services:
     depends_on:
       gcs-api:
         condition: service_started
+
+  # A real PX4 autopilot: PX4 SITL with SIH physics, headless (no Gazebo, no display). Opt-in, because it is a
+  # second vehicle and most work does not need it:
+  #   docker compose --profile sitl up -d --wait
+  # See docs/px4-sitl.md. It sends MAVLink to gcs-api:14560/udp as system id 10 (the gcs-simulator is system 1).
+  px4-sitl:
+    profiles: ["sitl"]
+    build:
+      context: docker/px4-sitl
+    image: gcs-px4-sitl:local
+    restart: unless-stopped
+    environment:
+      GCS_HOST: gcs-api
+      GCS_PORT: "14560"
+      PX4_PARAM_MAV_SYS_ID: "10"
+      # Same home as the built-in simulator (Ankara), so both vehicles show up on the same map.
+      PX4_HOME_LAT: "39.925533"
+      PX4_HOME_LON: "32.866287"
+      PX4_HOME_ALT: "938"
+    depends_on:
+      gcs-api:
+        condition: service_healthy
 
 volumes:
   postgres-data:

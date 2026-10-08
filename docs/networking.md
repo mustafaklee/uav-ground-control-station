@@ -7,6 +7,7 @@
 | Desktop → API | HTTP(S), REST | 8080 (HTTPS via Nginx in Phase 11) | CRUD, configuration, commands |
 | API → Desktop | WebSocket (SignalR) | 8080 | live telemetry push (Phase 4) |
 | Vehicle ⇄ API | MAVLink over UDP | 14550/udp (GCS listens) | standard for SITL, companion computers, IP radios |
+| PX4 SITL ⇄ API | MAVLink over UDP | 14560/udp (GCS listens) | compose `sitl` profile, next to the simulator on 14550 ([px4-sitl.md](px4-sitl.md)) |
 | Vehicle ⇄ API | MAVLink over TCP | e.g. 5760 (ArduPilot SITL) | reliable stream when available |
 | API → PostgreSQL | PostgreSQL wire protocol (TCP) | 5432 | persistence |
 | API → RabbitMQ | AMQP 0-9-1 (TCP) | 5672 | domain events |
@@ -42,6 +43,9 @@ replies to whatever address the vehicle last sent from. Consequences:
 | Corrupted bytes | CRC mismatch | frame dropped, `CrcErrors` counter |
 | Lost frames | gaps in per-sender sequence numbers | `FramesLost`, `PacketLossRatio` in link status |
 | Many vehicles drop at once | — | jitter spreads their retries over time |
+
+Frames with a message id the GCS does not decode are skipped, but their sequence numbers are still tracked, so they
+do not count as lost. A real PX4 streams about 35 message types and the GCS decodes a handful.
 
 Link quality (`framesReceived`, `framesLost`, `packetLossRatio`, `crcErrors`) is returned by
 `GET /api/v1/vehicles/{id}/connection` and is the basis for the connection quality indicators planned in Phase 12.

@@ -81,16 +81,22 @@ public sealed class MissionEndpointTests(GcsApiFactory factory)
     public async Task Upload_sends_the_mission_to_the_vehicle_and_download_reads_back_the_same_plan()
     {
         var vehicle = await ConnectedSimulatorAsync();
+        var position = await PositionAsync(vehicle.Id); // the takeoff means "here", resolved on upload
         var mission = await CreateAsync("Upload me", Survey);
 
         var upload = await _client.PostAsJsonAsync($"{Missions}/{mission.Id}/upload", new UploadMissionRequest(vehicle.Id), Ct);
+        upload.StatusCode.ShouldBe(HttpStatusCode.OK, await upload.Content.ReadAsStringAsync(Ct));
         var uploaded = await upload.Content.ReadFromJsonAsync<MissionResponse>(Ct);
         var onVehicle = await _client.GetFromJsonAsync<VehicleMissionResponse>($"{Vehicles}/{vehicle.Id}/mission", Ct);
 
-        upload.StatusCode.ShouldBe(HttpStatusCode.OK, await upload.Content.ReadAsStringAsync(Ct));
         uploaded!.LastUpload!.Succeeded.ShouldBeTrue();
         uploaded.LastUpload.VehicleId.ShouldBe(vehicle.Id);
-        onVehicle!.Items.ShouldBe(Survey);
+        onVehicle!.Items.Skip(1).ShouldBe(Survey[1..]);
+        var takeoff = onVehicle.Items[0];
+        takeoff.Command.ShouldBe("Takeoff");
+        takeoff.Altitude.ShouldBe(30);
+        takeoff.Latitude!.Value.ShouldBe(position.Latitude, 1e-6);
+        takeoff.Longitude!.Value.ShouldBe(position.Longitude, 1e-6);
 
         await _client.DeleteAsync(new Uri($"{Vehicles}/{vehicle.Id}/connection", UriKind.Relative), Ct);
     }
@@ -166,6 +172,18 @@ public sealed class MissionEndpointTests(GcsApiFactory factory)
             async () => (await _client.GetFromJsonAsync<VehicleLinkResponse>($"{Vehicles}/{vehicle.Id}/connection", Ct))!,
             l => l.State == "Connected", TimeSpan.FromSeconds(15), "the simulator connects");
         return vehicle;
+    }
+
+    private async Task<PositionDto> PositionAsync(Guid vehicleId)
+    {
+        var telemetry = await Eventually.GetAsync(
+            async () =>
+            {
+                var response = await _client.GetAsync(new Uri($"{Vehicles}/{vehicleId}/telemetry", UriKind.Relative), Ct);
+                return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<TelemetryResponse>(Ct) : null;
+            },
+            t => t?.Position is not null, TimeSpan.FromSeconds(15), "the simulator reports its position");
+        return telemetry!.Position!;
     }
 
     private static async Task<string?> ReadCodeAsync(HttpResponseMessage response)

@@ -31,7 +31,7 @@ public sealed record PositionDto(double Latitude, double Longitude, double Altit
 public sealed record AttitudeDto(double Roll, double Pitch, double Yaw);
 
 /// <summary>m/s and degrees.</summary>
-public sealed record MotionDto(double GroundSpeed, double AirSpeed, double ClimbRate, double Heading);
+public sealed record MotionDto(double GroundSpeed, double? AirSpeed, double ClimbRate, double Heading);
 
 /// <summary>Volts, amperes, percent.</summary>
 public sealed record BatteryDto(double? Voltage, double? Current, int? RemainingPercent);

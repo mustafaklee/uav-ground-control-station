@@ -23,6 +23,12 @@ internal sealed class SignalRLiveUpdatePublisher(
         return vehiclesHub.Clients.All.LinkStatusChanged(status);
     }
 
+    public Task PublishLinkQualityAsync(VehicleLinkResponse status, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        return vehiclesHub.Clients.All.LinkQualityUpdated(status);
+    }
+
     public Task PublishCommandLeaseAsync(CommandLeaseResponse lease, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(lease);

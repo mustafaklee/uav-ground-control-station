@@ -13,7 +13,13 @@ public sealed class SimulatedVehicleRunner(SimulatedVehicle vehicle, IMavlinkTra
     private const int TicksPerHeartbeat = 10;
     private const int ReceiveBufferSize = 2048;
 
+    /// <summary>SiK radios report as system 51 ('3'), component 68 ('D').</summary>
+    public const byte RadioSystemId = 51;
+
+    public const byte RadioComponentId = 68;
+
     private byte _sequence;
+    private byte _radioSequence;
 
     /// <summary>When true the vehicle stays alive but sends nothing, like a radio that lost its link.</summary>
     public bool IsSilent { get; set; }
@@ -34,6 +40,10 @@ public sealed class SimulatedVehicleRunner(SimulatedVehicle vehicle, IMavlinkTra
                 if (++tick % TicksPerHeartbeat == 0)
                 {
                     await SendAsync(vehicle.Heartbeat(), cancellationToken);
+                    if (vehicle.Options.SimulateRadio)
+                    {
+                        await SendAsync(vehicle.RadioStatus(), cancellationToken, RadioSystemId, RadioComponentId);
+                    }
                 }
 
                 foreach (var message in vehicle.Telemetry())
@@ -74,14 +84,17 @@ public sealed class SimulatedVehicleRunner(SimulatedVehicle vehicle, IMavlinkTra
         }
     }
 
-    private ValueTask SendAsync(Protocol.Messages.IMavlinkMessage message, CancellationToken cancellationToken)
+    private ValueTask SendAsync(
+        Protocol.Messages.IMavlinkMessage message, CancellationToken cancellationToken, byte? systemId = null, byte componentId = MavComponent.Autopilot1)
     {
         if (IsSilent)
         {
             return ValueTask.CompletedTask;
         }
 
-        var frame = MavlinkCodec.Encode(message, _sequence++, vehicle.Options.SystemId, MavComponent.Autopilot1);
+        // The radio is its own MAVLink system with its own sequence numbers, like a real SiK radio.
+        var sequence = systemId is null ? _sequence++ : _radioSequence++;
+        var frame = MavlinkCodec.Encode(message, sequence, systemId ?? vehicle.Options.SystemId, componentId);
         return transport.SendAsync(frame, cancellationToken);
     }
 }

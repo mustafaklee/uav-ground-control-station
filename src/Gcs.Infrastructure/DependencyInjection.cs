@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddSingleton<IVehicleLinkEventSink>(sp => sp.GetRequiredService<VehicleLinkEventDispatcher>());
         services.AddHostedService(sp => sp.GetRequiredService<VehicleLinkEventDispatcher>());
         services.AddHostedService<VehicleLinkRestorer>();
+        services.AddHostedService<LinkQualityBroadcaster>();
 
         services.AddOptions<CommandLeaseOptions>()
             .BindConfiguration(CommandLeaseOptions.SectionName)

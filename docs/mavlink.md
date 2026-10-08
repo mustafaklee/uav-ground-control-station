@@ -48,6 +48,8 @@ The UI and API never see sockets, frames or MAVLink enums. They see `ConnectionS
 | VFR_HUD | 74 | vehicle → GCS | ground/air speed (NaN without a sensor → `null`), climb, heading |
 | COMMAND_LONG | 76 | GCS → vehicle | commands: ARM, DISARM, TAKEOFF, LAND, RTL, SET_MODE (see [commands.md](commands.md)) |
 | COMMAND_ACK | 77 | vehicle → GCS | command results; resend with `confirmation` + 1 on timeout |
+| RADIO_STATUS | 109 | radio → GCS | telemetry radio RSSI, noise, errors (from the radio's own system id, e.g. SiK 51) |
+| TIMESYNC | 111 | both | GCS request at 1 Hz with its clock in `ts1`; the echo gives the round-trip time ([networking.md](networking.md)) |
 
 Every message is covered by a golden test: `scripts/generate-mavlink-golden.py` produces reference frames with
 pymavlink, and the codec must encode to exactly those bytes and decode them back.

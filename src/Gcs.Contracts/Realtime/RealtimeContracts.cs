@@ -12,7 +12,7 @@ public static class RealtimeRoutes
     /// <summary>Live telemetry. Clients subscribe per vehicle and receive updates at a throttled rate (default 5 Hz).</summary>
     public const string TelemetryHub = "/hubs/telemetry";
 
-    /// <summary>Fleet-wide vehicle events: link state and command lease changes for every vehicle.</summary>
+    /// <summary>Fleet-wide vehicle events: link state, link quality and command lease changes for every vehicle.</summary>
     public const string VehiclesHub = "/hubs/vehicles";
 }
 
@@ -35,6 +35,9 @@ public interface ITelemetryHubClient
 public interface IVehiclesHubClient
 {
     Task LinkStatusChanged(VehicleLinkResponse status);
+
+    /// <summary>Every 2 s for each active link: the same status with fresh link quality (Phase 12).</summary>
+    Task LinkQualityUpdated(VehicleLinkResponse status);
 
     /// <summary>An operator took or released control of a vehicle.</summary>
     Task CommandLeaseChanged(CommandLeaseResponse lease);

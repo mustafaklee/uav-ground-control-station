@@ -75,6 +75,10 @@ public sealed class GcsMetrics : IDisposable
     public void ObserveGauge(string name, Func<IEnumerable<Measurement<int>>> observe, string description) =>
         _meter.CreateObservableGauge(name, observe, description: description);
 
+    /// <summary>A gauge with a fractional value and a unit, e.g. round-trip time per vehicle in milliseconds.</summary>
+    public void ObserveGauge(string name, Func<IEnumerable<Measurement<double>>> observe, string unit, string description) =>
+        _meter.CreateObservableGauge(name, observe, unit, description);
+
     public void Dispose() => _meter.Dispose();
 
     private sealed class StandaloneMeterFactory : IMeterFactory

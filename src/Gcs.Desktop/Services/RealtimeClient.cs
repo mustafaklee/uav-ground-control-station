@@ -60,6 +60,9 @@ public sealed class RealtimeClient : IRealtimeClient
 
         _telemetry.On<TelemetryResponse>(nameof(ITelemetryHubClient.TelemetryUpdated), t => TelemetryReceived?.Invoke(t));
         _vehicles.On<VehicleLinkResponse>(nameof(IVehiclesHubClient.LinkStatusChanged), s => LinkStatusReceived?.Invoke(s));
+
+        // A quality update is a complete link status, so it takes the same path (Phase 12).
+        _vehicles.On<VehicleLinkResponse>(nameof(IVehiclesHubClient.LinkQualityUpdated), s => LinkStatusReceived?.Invoke(s));
         _vehicles.On<CommandLeaseResponse>(nameof(IVehiclesHubClient.CommandLeaseChanged), l => CommandLeaseReceived?.Invoke(l));
 
         _telemetry.Reconnecting += _ =>

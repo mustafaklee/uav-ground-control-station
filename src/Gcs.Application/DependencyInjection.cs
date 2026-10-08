@@ -37,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<GetVehicleLinkHandler>();
         services.AddScoped<GetLatestTelemetryHandler>();
         services.AddScoped<TelemetryHistoryHandler>();
+        services.AddScoped<Network.GetNetworkTopologyHandler>();
 
         services.AddScoped<CreateMissionHandler>();
         services.AddScoped<UpdateMissionHandler>();

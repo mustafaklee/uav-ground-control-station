@@ -122,6 +122,10 @@ public sealed class Px4SitlFlightTests(GcsApiFactory factory)
         var link = await GetAsync<VehicleLinkResponse>($"{api}/connection");
         link.Quality.PacketLossRatio.ShouldBeLessThan(0.05);
         link.Quality.CrcErrors.ShouldBe(0);
+
+        // Phase 12: PX4 answers our TIMESYNC requests, so the round trip is measured, and the link grades Good.
+        link.Quality.RoundTripMilliseconds.ShouldNotBeNull().ShouldBeLessThan(300);
+        link.Quality.Grade.ShouldBe("Good");
     }
 
     /// <summary>

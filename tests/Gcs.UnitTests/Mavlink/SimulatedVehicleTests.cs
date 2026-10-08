@@ -37,6 +37,30 @@ public sealed class SimulatedVehicleTests
     }
 
     [Fact]
+    public void Timesync_requests_are_answered_with_the_requester_timestamp_echoed()
+    {
+        var vehicle = new SimulatedVehicle(Options);
+
+        var answer = vehicle.Handle(new TimesyncMessage(0, 123_456_789)).ShouldBeOfType<TimesyncMessage>();
+
+        answer.Ts1.ShouldBe(123_456_789);
+        answer.IsRequest.ShouldBeFalse();
+        vehicle.Handle(new TimesyncMessage(5, 6)).ShouldBeNull(); // an answer is not answered again
+    }
+
+    [Fact]
+    public void The_simulated_radio_weakens_with_distance_from_home()
+    {
+        var vehicle = new SimulatedVehicle(Options with { StartAirborne = false });
+        var atHome = vehicle.RadioStatus().Rssi;
+
+        var far = new SimulatedVehicle(Options with { OrbitRadiusMetres = 1200 }).RadioStatus().Rssi;
+
+        atHome.ShouldBe((byte)200);
+        far.ShouldBe((byte)80);
+    }
+
+    [Fact]
     public void Disarm_in_flight_is_denied_and_commands_for_other_systems_are_ignored()
     {
         var vehicle = new SimulatedVehicle(Options);

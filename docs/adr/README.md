@@ -23,3 +23,4 @@ New ADRs get the next number; superseded ADRs are kept and marked as superseded.
 | [ADR-016](ADR-016-observability.md) | OpenTelemetry via System.Diagnostics, traceparent through the outbox, background-noise sampler, three-level health, Aspire dashboard |
 | [ADR-017](ADR-017-px4-sitl.md) | Official PX4 SITL image with SIH physics, opt-in compose profile, opt-in flight test in its own CI job |
 | [ADR-018](ADR-018-deployment.md) | One Ubuntu 24.04 host with Docker Compose, Nginx TLS proxy, trusted forwarded headers, Let's Encrypt or internal CA, UFW, daily verified pg_dump, scripted install |
+| [ADR-019](ADR-019-advanced-networking.md) | Link quality (10 s loss window, TIMESYNC round trip, radio status, grade), several vehicles per UDP port by system id, topology API, radio provider abstraction for MANET; SNMP/NetFlow deferred |

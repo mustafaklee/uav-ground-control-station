@@ -127,5 +127,23 @@ public static class VehicleLinkMapping
                 status.LastHeartbeatAt,
                 status.ReconnectAttempts,
                 status.FaultReason,
-                new LinkQualityDto(status.Quality.FramesReceived, status.Quality.FramesLost, status.Quality.PacketLossRatio, status.Quality.CrcErrors));
+                ToDto(status.Quality));
+
+    public static LinkQualityDto ToDto(LinkQuality quality)
+    {
+        ArgumentNullException.ThrowIfNull(quality);
+        return new LinkQualityDto(
+            quality.FramesReceived,
+            quality.FramesLost,
+            quality.PacketLossRatio,
+            quality.CrcErrors,
+            quality.RecentPacketLossRatio,
+            quality.MessagesPerSecond,
+            quality.RoundTripMilliseconds,
+            quality.LastFrameAt,
+            quality.Grade.ToString(),
+            quality.Radio is { } r
+                ? new RadioStatusDto(r.Rssi, r.RemoteRssi, r.Noise, r.RemoteNoise, r.ReceiveErrors, r.Corrected, r.TxBufferPercent, r.ReceivedAt)
+                : null);
+    }
 }

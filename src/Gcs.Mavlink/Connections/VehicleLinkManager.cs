@@ -96,8 +96,26 @@ internal sealed class VehicleLinkManager(
                 () => GetAll().GroupBy(s => s.State).Select(g => new System.Diagnostics.Metrics.Measurement<int>(
                     g.Count(), new KeyValuePair<string, object?>("state", g.Key.ToString()))),
                 "Vehicle links per state.");
+
+            // Link quality per vehicle (ADR-019): the dashboard and any OTLP backend can graph and alert on these.
+            metrics.ObserveGauge("gcs.link.rtt", () => QualityGauge(q => q.RoundTripMilliseconds), "ms", "Smoothed TIMESYNC round-trip time per vehicle link.");
+            metrics.ObserveGauge("gcs.link.packet_loss", () => QualityGauge(q => q.RecentPacketLossRatio), "1", "Packet loss over the last 10 s per vehicle link.");
+            metrics.ObserveGauge("gcs.link.message_rate", () => QualityGauge(q => q.MessagesPerSecond), "{message}/s", "Messages per second per vehicle link.");
+            metrics.ObserveGauge("gcs.link.radio.rssi", () => QualityGauge(q => q.Radio?.Rssi), "1", "Telemetry radio RSSI (radio units) per vehicle link.");
         }
     }
+
+    private IEnumerable<System.Diagnostics.Metrics.Measurement<double>> QualityGauge(Func<LinkQuality, double?> value) =>
+        GetAll()
+            .Where(s => s.State == ConnectionState.Connected)
+            .Select(s => (s.VehicleId, Value: value(s.Quality)))
+            .Where(m => m.Value is not null)
+            .Select(m => new System.Diagnostics.Metrics.Measurement<double>(
+                m.Value!.Value, new KeyValuePair<string, object?>(GcsTracing.VehicleId, m.VehicleId.Value.ToString())));
+
+    /// <summary>Every link with what it targets, for the network topology.</summary>
+    internal IReadOnlyList<(VehicleLinkTarget Target, VehicleLinkStatus Status)> GetLinks() =>
+        [.. _connections.Values.Select(c => (c.Target, c.GetStatus()))];
 
     public VehicleLinkStatus? GetStatus(VehicleId vehicleId) =>
         _connections.TryGetValue(vehicleId, out var connection) ? connection.GetStatus() : null;

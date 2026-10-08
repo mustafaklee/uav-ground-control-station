@@ -36,4 +36,16 @@ public static class MavlinkWire
     public const byte IncompatFlagSigned = 0x01;
 
     public const int MaxFrameLength = HeaderLengthV2 + MaxPayloadLength + ChecksumLength + SignatureLength;
+
+    /// <summary>
+    /// The sender's system id from the header of the first frame in <paramref name="data"/>, without validating the frame:
+    /// byte 5 of a MAVLink 2 header, byte 3 of MAVLink 1. Null when the data does not start with a MAVLink header.
+    /// Enough to route a datagram; the receiving link still checks every frame's checksum.
+    /// </summary>
+    public static byte? PeekSystemId(ReadOnlySpan<byte> data) => data switch
+    {
+        [StartV2, _, _, _, _, var systemId, ..] when data.Length >= HeaderLengthV2 => systemId,
+        [StartV1, _, _, var systemId, ..] when data.Length >= HeaderLengthV1 => systemId,
+        _ => null,
+    };
 }

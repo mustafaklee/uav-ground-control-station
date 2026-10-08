@@ -99,6 +99,9 @@ Avalonia GCS ──REST/SignalR──► Gcs.Api ──► Application ──►
 | Takeoff → mission → RTL flight test against real PX4, own CI job | ✅ Phase 10 |
 | One-command install on Ubuntu Server 24.04: Docker Compose, Nginx (TLS, HTTP/2, WebSocket, rate limit), UFW | ✅ Phase 11 |
 | Let's Encrypt or internal CA, trusted forwarded headers, daily verified `pg_dump` with retention and restore | ✅ Phase 11 |
+| Several vehicles on one UDP port (demultiplexed by system id), unregistered systems detected | ✅ Phase 12 |
+| Link quality: 10 s loss window, TIMESYNC round trip, message rate, telemetry radio RSSI, Good/Fair/Poor/Lost | ✅ Phase 12 |
+| Network topology API, radio abstraction for future MANET radios, live quality push, `gcs.link.*` gauges | ✅ Phase 12 |
 
 ## Technology stack
 
@@ -312,7 +315,7 @@ the proxy network, a firewall with two open ports and databases on an internal n
 | 9 | Observability ✅ |
 | 10 | PX4 SITL ✅ |
 | 11 | Deployment ✅ |
-| 12 | Advanced networking |
+| 12 | Advanced networking ✅ |
 
 ## Contributing
 

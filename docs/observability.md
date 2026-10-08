@@ -65,6 +65,7 @@ Consumers of `gcs.events` should read the `traceparent` header and start their p
 | `gcs.mission.transfers{direction, result}` | failed uploads |
 | `gcs.mavlink.frames{gcs.vehicle.id}` | message rate per vehicle; a falling rate is a degrading radio link |
 | `gcs.link.state_changes{state}`, `gcs.links{state}` | flapping links, how many vehicles are connected |
+| `gcs.link.rtt`, `gcs.link.packet_loss`, `gcs.link.message_rate`, `gcs.link.radio.rssi` `{gcs.vehicle.id}` | link quality per vehicle (Phase 12): round trip (ms), loss over 10 s, messages/s, radio signal |
 | `gcs.auth.logins{result}` | spikes of `invalid_credentials` or `locked_out` mean someone is guessing |
 | `http.server.request.duration` | API latency per route and status |
 | `db.client.*` (Npgsql), `dotnet.*` (runtime) | database pool, GC, thread pool |

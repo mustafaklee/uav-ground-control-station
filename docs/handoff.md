@@ -6,38 +6,32 @@ Where the work stopped and what comes next. Update or remove this file when work
 
 | Branch | PR | State |
 |---|---|---|
-| `main` | | Phases 1–10 (#10 merged 2026-10-08) |
-| `feature/phase-11-deployment` | #11 → `main` | Rebased onto `main`, pushed, PR open |
+| `main` | | Phases 1–11 (#10 and #11 merged 2026-10-08) |
+| `feature/phase-12-advanced-networking` | → `main` | Rebased onto `main`, pushed, PR open |
 
-Stale branches: `feature/phase-9-observability` (its PR #8 was merged into `feature/phase-8-security` by mistake; #9
-replaced it from `feature/phase-9-observability-main`). Both can be deleted on GitHub.
+Stale branches that can be deleted on GitHub: `feature/phase-9-observability`, `feature/phase-9-observability-main`,
+`feature/phase-10-px4-sitl`, `feature/phase-11-deployment`.
 
-## Phase 10 fixes made while opening #10
+## Phase 12 (Advanced networking): done
 
-* `MissionEndpointTests` upload test: waits for the vehicle position (takeoff "here" is resolved on upload) and
-  expects the takeoff back with coordinates.
-* `ci.yml` contained a literal 0x01 byte where the PX4 job's `sed` had `\1`, so GitHub rejected the whole workflow and
-  no checks ran. Fixed; check new workflow files with a YAML parser before pushing.
-
-## Phase 11 (Deployment): done
-
-* API: `ReverseProxy:Enabled` + `ReverseProxy:TrustedNetworks` (forwarded headers from the proxy only), integration
-  tests `ReverseProxyTests`.
-* `deploy/compose.yml`, `deploy/nginx/*`, `deploy/install.sh`, `deploy/tls/internal-ca.sh`, `deploy/backup/*`.
-* `deploy/test/verify-install.sh`: Ubuntu 24.04 + systemd + Docker-in-Docker; 17 checks, all passed on 2026-10-09.
-* CI job `deploy-config` (shellcheck, compose config, nginx -t). Shellcheck and nginx -t pass locally.
-* Docs: `docs/deployment.md`, ADR-018, `docs/learning/phase-11-rehberi.md`, README, security.md.
-* Tests: 339 unit, 11 architecture, 128 integration (+1 opt-in SITL skipped), all green.
+* ADR-019. MAVLink RADIO_STATUS (109) and TIMESYNC (111), golden-tested against pymavlink.
+* `LinkQualityMonitor` (10 s window, EWMA round trip, radio), `LinkQualityRules` (Good/Fair/Poor/Lost) in the domain.
+* `UdpEndpointHub`: several vehicles on one UDP port, routed by system id; unregistered systems are listed.
+* `GET /api/v1/network/topology`, `IRadioNetworkProvider` (first implementation: RADIO_STATUS).
+* `LinkQualityUpdated` pushed every 2 s; gauges `gcs.link.rtt|packet_loss|message_rate|radio.rssi`; desktop quality line.
+* The simulator answers TIMESYNC and can simulate a SiK radio (`Simulator__SimulateRadio`, on in dev compose).
+* Real PX4 answers TIMESYNC: the SITL flight test checks the round trip and the Good grade.
+* Docs: networking.md, mavlink.md, observability.md, README, `docs/learning/phase-12-rehberi.md`.
+* Tests: 379 unit, 11 architecture, 131 integration (+1 opt-in SITL, which passed locally).
 
 ## Next steps
 
-1. Drive the Phase 11 PR to green CI (new job: Deployment config); Mustafa reviews and merges.
-2. Phase 12: advanced networking (several vehicles, ArduPilot SITL over TCP 5760, link quality UI; MAVLink only from
-   the vehicles' network via `DOCKER-USER`, MAVLink 2 signing).
+1. Drive the Phase 12 PR to green CI; Mustafa reviews and merges.
+2. The twelve phases of the brief are complete. Anything beyond them waits for Mustafa's decision.
 
 ## Local machine notes
 
 * `.env` (git-ignored) holds `JWT_SIGNING_KEY` and `GCS_ADMIN_PASSWORD`. The same values are in `dotnet user-secrets`
   for `src/Gcs.Api`.
 * The dev stack is not running. Start it with `docker compose --profile sitl up -d --build --wait`.
-* The install test containers were removed; the image `gcs-ubuntu-server:24.04` is kept as a cache.
+* `deploy/test/verify-install.sh` tests the server install in a throwaway Ubuntu container (about 15 minutes).

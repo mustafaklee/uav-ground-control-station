@@ -99,6 +99,10 @@ internal sealed class VehicleLinkManager(
         }
     }
 
+    /// <summary>Every link with what it targets, for the network topology.</summary>
+    internal IReadOnlyList<(VehicleLinkTarget Target, VehicleLinkStatus Status)> GetLinks() =>
+        [.. _connections.Values.Select(c => (c.Target, c.GetStatus()))];
+
     public VehicleLinkStatus? GetStatus(VehicleId vehicleId) =>
         _connections.TryGetValue(vehicleId, out var connection) ? connection.GetStatus() : null;
 

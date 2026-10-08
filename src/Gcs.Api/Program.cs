@@ -80,6 +80,7 @@ try
     app.MapVehicleEndpoints();
     app.MapMissionEndpoints();
     app.MapCommandEndpoints();
+    app.MapNetworkEndpoints();
     app.MapAuthEndpoints();
     app.MapHub<TelemetryHub>(RealtimeRoutes.TelemetryHub).RequireAuthorization(Permissions.Read);
     app.MapHub<VehiclesHub>(RealtimeRoutes.VehiclesHub).RequireAuthorization(Permissions.Read);

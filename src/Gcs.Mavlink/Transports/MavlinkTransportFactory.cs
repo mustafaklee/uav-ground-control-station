@@ -5,7 +5,7 @@ using Gcs.Mavlink.Simulation;
 namespace Gcs.Mavlink.Transports;
 
 /// <summary>Maps a vehicle's <see cref="ConnectionSettings"/> to a transport.</summary>
-internal sealed class MavlinkTransportFactory(TimeProvider time) : IMavlinkTransportFactory
+internal sealed class MavlinkTransportFactory(TimeProvider time, UdpEndpointHub udp) : IMavlinkTransportFactory
 {
     public IMavlinkTransport Create(ConnectionSettings settings, byte systemId)
     {
@@ -13,7 +13,8 @@ internal sealed class MavlinkTransportFactory(TimeProvider time) : IMavlinkTrans
         return settings.Transport switch
         {
             // UDP listens locally: Host is the local address to bind (0.0.0.0 = all interfaces), Port the local port.
-            TransportType.Udp => UdpMavlinkTransport.Listen(new IPEndPoint(ResolveBindAddress(settings.Host!), settings.Port!.Value)),
+            // Vehicles on the same port share one socket and are told apart by system id (ADR-019).
+            TransportType.Udp => udp.Create(new IPEndPoint(ResolveBindAddress(settings.Host!), settings.Port!.Value), systemId),
             TransportType.Tcp => new TcpMavlinkTransport(settings.Host!, settings.Port!.Value),
             TransportType.Simulator => new SimulatorMavlinkTransport(new SimulatedVehicleOptions { SystemId = systemId }, time),
             TransportType.Serial => throw new NotSupportedException("Serial links are not supported yet (planned together with radio modems)."),
@@ -21,7 +22,7 @@ internal sealed class MavlinkTransportFactory(TimeProvider time) : IMavlinkTrans
         };
     }
 
-    private static IPAddress ResolveBindAddress(string host) =>
+    internal static IPAddress ResolveBindAddress(string host) =>
         IPAddress.TryParse(host, out var address) ? address
         : string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase) ? IPAddress.Loopback
         : throw new NotSupportedException($"UDP listen address must be an IP address, got '{host}'.");

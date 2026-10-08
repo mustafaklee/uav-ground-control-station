@@ -36,6 +36,7 @@ public sealed class AuthorizationMatrixTests(GcsApiFactory factory)
         { "DELETE", $"/api/v1/vehicles/{Id}/connection", Linkers },
         { "GET", $"/api/v1/vehicles/{Id}/telemetry", Everyone },
         { "GET", $"/api/v1/vehicles/{Id}/telemetry/history", Everyone },
+        { "GET", "/api/v1/network/topology", Everyone },
         { "GET", "/api/v1/missions", Everyone },
         { "GET", $"/api/v1/missions/{Id}", Everyone },
         { "POST", "/api/v1/missions", Pilots },

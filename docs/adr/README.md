@@ -22,3 +22,4 @@ New ADRs get the next number; superseded ADRs are kept and marked as superseded.
 | [ADR-015](ADR-015-authentication-and-authorization.md) | Own users with PBKDF2, short JWT + rotating refresh tokens, role-to-permission policies, rate limiting |
 | [ADR-016](ADR-016-observability.md) | OpenTelemetry via System.Diagnostics, traceparent through the outbox, background-noise sampler, three-level health, Aspire dashboard |
 | [ADR-017](ADR-017-px4-sitl.md) | Official PX4 SITL image with SIH physics, opt-in compose profile, opt-in flight test in its own CI job |
+| [ADR-018](ADR-018-deployment.md) | One Ubuntu 24.04 host with Docker Compose, Nginx TLS proxy, trusted forwarded headers, Let's Encrypt or internal CA, UFW, daily verified pg_dump, scripted install |

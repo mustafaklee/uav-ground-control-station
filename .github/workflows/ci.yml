@@ -71,7 +71,7 @@ jobs:
 
       - name: Pull the PX4 SITL image
         run: |
-          image=$(sed -nE 's/^FROM (.+)$//p' docker/px4-sitl/Dockerfile)
+          image=$(sed -nE 's/^FROM (.+)$/\1/p' docker/px4-sitl/Dockerfile)
           for i in 1 2 3 4; do docker pull "$image" && exit 0; sleep $((2 ** i)); done
           exit 1
 

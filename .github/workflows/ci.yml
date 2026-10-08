@@ -83,6 +83,35 @@ jobs:
           GCS_PX4_SITL: "1"
         run: dotnet test --project tests/Gcs.IntegrationTests --configuration $CONFIGURATION --no-build -- --filter-trait "Category=Sitl"
 
+  # Phase 11: the production files under deploy/ are checked on every change; the full install test
+  # (deploy/test/verify-install.sh, 10-15 min, Docker in Docker) is run by hand. See docs/deployment.md.
+  deploy-config:
+    name: Deployment config
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Shell scripts (shellcheck)
+        run: shellcheck --severity=warning deploy/*.sh deploy/*/*.sh
+
+      - name: Production compose file
+        run: |
+          printf '%s\n' POSTGRES_USER=u POSTGRES_PASSWORD=p POSTGRES_DB=d RABBITMQ_USER=u RABBITMQ_PASSWORD=p \
+            JWT_SIGNING_KEY=k GCS_DOMAIN=gcs.ci.test > "$RUNNER_TEMP/ci.env"
+          docker compose --env-file "$RUNNER_TEMP/ci.env" -f deploy/compose.yml config --quiet
+          echo "NGINX_IMAGE=$(docker compose --env-file "$RUNNER_TEMP/ci.env" -f deploy/compose.yml config --images | grep '^nginx:')" >> "$GITHUB_ENV"
+
+      - name: Nginx configuration (nginx -t with the rendered template)
+        run: |
+          tls="$RUNNER_TEMP/tls" && mkdir -p "$tls"
+          openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 1 -subj /CN=gcs.ci.test \
+            -keyout "$tls/privkey.pem" -out "$tls/fullchain.pem"
+          docker run --rm --add-host gcs-api:127.0.0.1 -e GCS_DOMAIN=gcs.ci.test -e NGINX_ENVSUBST_FILTER=^GCS_ \
+            -v "$PWD/deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" -v "$PWD/deploy/nginx/templates:/etc/nginx/templates:ro" \
+            -v "$tls:/etc/nginx/tls:ro" "$NGINX_IMAGE" nginx -t
+
   docker:
     name: Docker build and compose smoke test
     runs-on: ubuntu-24.04

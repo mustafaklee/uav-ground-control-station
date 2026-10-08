@@ -61,6 +61,8 @@ public sealed class GoldenFrameTests
         { "MISSION_ACK (invalid sequence)", 14, new MissionAckMessage(255, 190, MavMissionResult.InvalidSequence), GoldenFrames.MissionAckInvalidSequence },
         { "MISSION_CURRENT", 15, new MissionCurrentMessage(2), GoldenFrames.MissionCurrent },
         { "MISSION_ITEM_REACHED", 16, new MissionItemReachedMessage(2), GoldenFrames.MissionItemReached },
+        { "RADIO_STATUS", 17, new RadioStatusMessage(182, 176, 97, 41, 44, 12, 3), GoldenFrames.RadioStatus },
+        { "TIMESYNC (answer)", 18, new TimesyncMessage(1234567890123, 987654321000), GoldenFrames.Timesync },
     };
 
     /// <summary>

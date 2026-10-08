@@ -313,3 +313,65 @@ public sealed record CommandAckMessage(MavCmd Command, MavResult Result) : IMavl
         p[2] = (byte)Result;
     }
 }
+
+/// <summary>
+/// RADIO_STATUS (#109): sent by telemetry radios (SiK and others) about the radio link itself, not the vehicle.
+/// RSSI and noise are in the radio's own units (SiK: 0-255, roughly 2 dB per step); "remote" values are the other end's.
+/// </summary>
+public sealed record RadioStatusMessage(
+    byte Rssi,
+    byte RemoteRssi,
+    byte TxBufferPercent,
+    byte Noise,
+    byte RemoteNoise,
+    ushort ReceiveErrors,
+    ushort Corrected) : IMavlinkMessage
+{
+    public const uint Id = 109;
+    public const int Length = 9;
+
+    public uint MessageId => Id;
+
+    public static IMavlinkMessage Read(ReadOnlySpan<byte> p) => new RadioStatusMessage(
+        p[4], p[5], p[6], p[7], p[8],
+        BinaryPrimitives.ReadUInt16LittleEndian(p),
+        BinaryPrimitives.ReadUInt16LittleEndian(p[2..]));
+
+    public void Write(Span<byte> payload)
+    {
+        var p = payload;
+        BinaryPrimitives.WriteUInt16LittleEndian(p, ReceiveErrors);
+        BinaryPrimitives.WriteUInt16LittleEndian(p[2..], Corrected);
+        p[4] = Rssi;
+        p[5] = RemoteRssi;
+        p[6] = TxBufferPercent;
+        p[7] = Noise;
+        p[8] = RemoteNoise;
+    }
+}
+
+/// <summary>
+/// TIMESYNC (#111). A request has <see cref="Tc1"/> = 0 and <see cref="Ts1"/> = the sender's clock (nanoseconds); the
+/// answer echoes <see cref="Ts1"/> and puts the responder's clock in <see cref="Tc1"/>. The GCS uses the echo for the
+/// round-trip time: only its own clock is compared, so the two clocks need not agree.
+/// </summary>
+public sealed record TimesyncMessage(long Tc1, long Ts1) : IMavlinkMessage
+{
+    public const uint Id = 111;
+    public const int Length = 16;
+
+    public uint MessageId => Id;
+
+    public bool IsRequest => Tc1 == 0;
+
+    public static IMavlinkMessage Read(ReadOnlySpan<byte> p) => new TimesyncMessage(
+        BinaryPrimitives.ReadInt64LittleEndian(p),
+        BinaryPrimitives.ReadInt64LittleEndian(p[8..]));
+
+    public void Write(Span<byte> payload)
+    {
+        var p = payload;
+        BinaryPrimitives.WriteInt64LittleEndian(p, Tc1);
+        BinaryPrimitives.WriteInt64LittleEndian(p[8..], Ts1);
+    }
+}

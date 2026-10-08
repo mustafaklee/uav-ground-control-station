@@ -26,6 +26,8 @@ public static class MavlinkMessageRegistry
         new(MissionAckMessage.Id, "MISSION_ACK", 153, MissionAckMessage.Length, MissionAckMessage.Read),
         new(MissionRequestIntMessage.Id, "MISSION_REQUEST_INT", 196, MissionRequestIntMessage.Length, MissionRequestIntMessage.Read),
         new(MissionItemIntMessage.Id, "MISSION_ITEM_INT", 38, MissionItemIntMessage.Length, MissionItemIntMessage.Read),
+        new(RadioStatusMessage.Id, "RADIO_STATUS", 185, RadioStatusMessage.Length, RadioStatusMessage.Read),
+        new(TimesyncMessage.Id, "TIMESYNC", 34, TimesyncMessage.Length, TimesyncMessage.Read),
     }.ToFrozenDictionary(info => info.Id);
 
     public static bool TryGet(uint messageId, [NotNullWhen(true)] out MavlinkMessageInfo? info) =>

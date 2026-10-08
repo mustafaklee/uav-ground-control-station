@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using Gcs.Api;
 using Gcs.Api.Endpoints;
+using Gcs.Api.Http;
 using Gcs.Api.Middleware;
 using Gcs.Api.Observability;
 using Gcs.Api.Realtime;
@@ -40,6 +41,7 @@ try
             options.ApiVersionReader = new UrlSegmentApiVersionReader();
         });
 
+    builder.Services.AddGcsReverseProxySupport();
     builder.Services.AddGcsSecurity();
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
@@ -50,6 +52,7 @@ try
 
     var app = builder.Build();
 
+    app.UseGcsReverseProxySupport(); // behind Nginx: the client's address and scheme, not the proxy's (docs/deployment.md)
     app.UseMiddleware<CorrelationIdMiddleware>();
     app.UseMiddleware<SecurityHeadersMiddleware>();
     app.UseSerilogRequestLogging();

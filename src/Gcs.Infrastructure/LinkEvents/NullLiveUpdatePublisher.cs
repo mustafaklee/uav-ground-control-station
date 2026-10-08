@@ -11,5 +11,7 @@ internal sealed class NullLiveUpdatePublisher : ILiveUpdatePublisher
 
     public Task PublishLinkStatusAsync(VehicleLinkResponse status, CancellationToken cancellationToken) => Task.CompletedTask;
 
+    public Task PublishLinkQualityAsync(VehicleLinkResponse status, CancellationToken cancellationToken) => Task.CompletedTask;
+
     public Task PublishCommandLeaseAsync(CommandLeaseResponse lease, CancellationToken cancellationToken) => Task.CompletedTask;
 }

@@ -17,6 +17,9 @@ public interface ILiveUpdatePublisher
 
     Task PublishLinkStatusAsync(VehicleLinkResponse status, CancellationToken cancellationToken);
 
+    /// <summary>Periodic link quality of an active link (ADR-019); state changes keep going through <see cref="PublishLinkStatusAsync"/>.</summary>
+    Task PublishLinkQualityAsync(VehicleLinkResponse status, CancellationToken cancellationToken);
+
     /// <summary>Someone took or released control of a vehicle; every operator's screen shows who is in control.</summary>
     Task PublishCommandLeaseAsync(CommandLeaseResponse lease, CancellationToken cancellationToken);
 }

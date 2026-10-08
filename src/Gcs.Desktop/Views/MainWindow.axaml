@@ -108,6 +108,8 @@
                         <TextBlock Text="{Binding Callsign}" FontWeight="SemiBold" Foreground="#E6EDF3" />
                         <TextBlock Text="{Binding Description}" Classes="label" />
                         <TextBlock Text="{Binding LinkState}" Classes="label" />
+                        <TextBlock Text="{Binding LinkSummary}" Classes="label" IsVisible="{Binding IsConnected}"
+                                   Foreground="{Binding LinkGrade, Converter={x:Static vm:LinkGradeBrush.Instance}}" />
                       </StackPanel>
                     </Grid>
                   </DataTemplate>

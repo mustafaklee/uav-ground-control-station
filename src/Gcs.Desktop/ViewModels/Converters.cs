@@ -21,6 +21,23 @@ public sealed class LinkStateBrush : IValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>Link quality grade → colour of the quality line (green good, gold fair, orange-red poor, grey lost).</summary>
+public sealed class LinkGradeBrush : IValueConverter
+{
+    public static readonly LinkGradeBrush Instance = new();
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch
+    {
+        "Good" => Brushes.LimeGreen,
+        "Fair" => Brushes.Gold,
+        "Poor" => Brushes.OrangeRed,
+        _ => Brushes.Gray,
+    };
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 /// <summary>Armed is shown in red: a vehicle with live motors is the most important thing on the screen.</summary>
 public sealed class ArmedBrush : IValueConverter
 {

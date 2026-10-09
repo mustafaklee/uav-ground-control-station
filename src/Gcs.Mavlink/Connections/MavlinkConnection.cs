@@ -294,9 +294,14 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
             lock (_gate)
             {
                 frames = _parser.Parse(buffer.AsSpan(0, read));
+
+                // Count the datagram before handling it: the first heartbeat makes the link Connected, and the status
+                // pushed for that change must already include the frames that carried it (not "Lost · 0 msg/s").
+                var totals = _parser.Statistics;
+                var fromVehicle = frames.Any(f => f.SystemId == _target.SystemId.Value);
+                _quality.RecordTotals(totals.FramesReceived + totals.UnknownMessages, totals.FramesLost, fromVehicle);
             }
 
-            var fromVehicle = false;
             foreach (var frame in frames)
             {
                 // A telemetry radio reports on itself with its own system id (SiK: 51), so it is taken from anyone.
@@ -316,7 +321,6 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
                     continue;
                 }
 
-                fromVehicle = true;
                 if (!MavlinkCodec.TryDecode(frame, out var message))
                 {
                     continue;
@@ -325,12 +329,6 @@ internal sealed partial class MavlinkConnection : IAsyncDisposable
                 _metrics.MavlinkFrames.Add(1, _vehicleTag);
 
                 Handle(message!);
-            }
-
-            lock (_gate)
-            {
-                var totals = _parser.Statistics;
-                _quality.RecordTotals(totals.FramesReceived + totals.UnknownMessages, totals.FramesLost, fromVehicle);
             }
         }
     }

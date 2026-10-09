@@ -12,10 +12,11 @@ reliability, safety, security and observability come before features.
 > in the [roadmap](#roadmap) and, in Turkish, in [docs/learning/genel-bakis.md](docs/learning/genel-bakis.md). What
 > is not done yet is listed under [known limitations](#known-limitations).
 
-![GCS desktop client, Flight tab: control panel with command lease, command buttons, last answer and audited command history](docs/images/gcs-desktop-phase7-control.png)
+![GCS desktop client, Flight page: navigation rail, top bar with the selected vehicle, map, vehicle list with link quality and the control panel](docs/images/gcs-desktop-flight.png)
 
-The Mission tab: [docs/images/gcs-desktop-phase6-mission.png](docs/images/gcs-desktop-phase6-mission.png).
-Live telemetry before the control panel existed: [docs/images/gcs-desktop-phase5.png](docs/images/gcs-desktop-phase5.png).
+Sign-in: [docs/images/gcs-desktop-login.png](docs/images/gcs-desktop-login.png) ·
+Mission page: [docs/images/gcs-desktop-mission.png](docs/images/gcs-desktop-mission.png) ·
+design system: [ADR-020](docs/adr/ADR-020-desktop-design-system.md).
 
 ## Project overview
 
@@ -78,6 +79,7 @@ Avalonia GCS ──REST/SignalR──► Gcs.Api ──► Application ──►
 | Several vehicles on one UDP port (demultiplexed by system id), unregistered systems detected | ✅ Phase 12 |
 | Link quality: 10 s loss window, TIMESYNC round trip, message rate, telemetry radio RSSI, Good/Fair/Poor/Lost | ✅ Phase 12 |
 | Network topology API, radio abstraction for future MANET radios, live quality push, `gcs.link.*` gauges | ✅ Phase 12 |
+| Desktop redesign: design tokens, navigation rail, two-pane sign-in, explicit empty/busy/stale states | ✅ [ADR-020](docs/adr/ADR-020-desktop-design-system.md) |
 
 ## Technology stack
 
@@ -133,8 +135,9 @@ dotnet run --project src/Gcs.Desktop -- --api http://10.0.0.5:8080/
 
 The client opens with a sign-in window (the first account is the bootstrap administrator; create personal accounts
 from there, see [docs/security.md](docs/security.md)). It keeps retrying if the backend is not up yet. Select a vehicle to see it on the map; Connect/Disconnect
-start and stop its MAVLink link. The Mission tab plans, saves and uploads missions to the selected vehicle
-([docs/missions.md](docs/missions.md)). Map data © OpenStreetMap contributors.
+start and stop its MAVLink link. The navigation rail switches between the Flight page (Ctrl+1) and the Mission page
+(Ctrl+2), which plans, saves and uploads missions to the selected vehicle ([docs/missions.md](docs/missions.md)).
+F5 refreshes the vehicle list. Map data © OpenStreetMap contributors.
 
 ### Docker setup
 
@@ -283,7 +286,8 @@ the proxy network, a firewall with two open ports and databases on an internal n
 | Links | MAVLink is neither signed nor encrypted; MAVLink is accepted from any address that reaches the UDP port | ADR-018, ADR-019 |
 | Scale | One API instance: links, command leases and rate-limit counters live in memory | ADR-003, ADR-015 |
 | Security | Access tokens cannot be revoked instantly (they expire within 15 minutes) | ADR-015 |
-| Map | Online OpenStreetMap tiles; offline tiles are needed before field use | ADR-012 |
+| Map | Online OpenStreetMap tiles (light, in a dark UI); offline tiles are needed before field use | ADR-012, ADR-020 |
+| Desktop | UI text is English only (no resource files for other languages yet) | ADR-020 |
 | Network | Link-quality thresholds are a starting point, not tuned with field data; SNMP and NetFlow not integrated | ADR-019 |
 | Deployment | Images are built on the server; Let's Encrypt path not tested end to end (needs a public name); backups stay on the host unless copied off | ADR-018 |
 | Simulation | PX4 SITL only (no ArduPilot SITL test, no Gazebo/camera) | ADR-017 |

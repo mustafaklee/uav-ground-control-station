@@ -35,6 +35,12 @@ public sealed partial class TelemetryViewModel : ObservableObject
     [ObservableProperty] private bool _isBatteryLow;
     [ObservableProperty] private string _lastUpdate = NoValue;
 
+    /// <summary>At least one telemetry message arrived for the selected vehicle.</summary>
+    [ObservableProperty] private bool _hasTelemetry;
+
+    /// <summary>Remaining battery 0-100 for the gauge bar; 0 while unknown (the text says "—").</summary>
+    [ObservableProperty] private double _batteryLevel;
+
     /// <summary>Raw position for the map (null until the first fix).</summary>
     [ObservableProperty] private PositionDto? _position;
 
@@ -76,6 +82,7 @@ public sealed partial class TelemetryViewModel : ObservableObject
             Battery = b.RemainingPercent is { } pct ? $"{pct}%" : NoValue;
             BatteryVoltage = b.Voltage is { } v ? $"{v.ToString("F2", Culture)} V" : NoValue;
             IsBatteryLow = b.RemainingPercent is < LowBatteryPercent;
+            BatteryLevel = b.RemainingPercent is { } level ? Math.Clamp(level, 0, 100) : 0;
         }
 
         if (telemetry.Gps is { } g)
@@ -91,6 +98,7 @@ public sealed partial class TelemetryViewModel : ObservableObject
         }
 
         LastUpdate = telemetry.UpdatedAt.ToLocalTime().ToString("HH:mm:ss", Culture);
+        HasTelemetry = true;
     }
 
     /// <summary>Clears everything (another vehicle was selected).</summary>
@@ -99,7 +107,8 @@ public sealed partial class TelemetryViewModel : ObservableObject
         Latitude = Longitude = AltitudeMsl = AltitudeRelative = NoValue;
         GroundSpeed = AirSpeed = ClimbRate = Heading = Roll = Pitch = Yaw = NoValue;
         Battery = BatteryVoltage = Gps = FlightMode = Armed = LastUpdate = NoValue;
-        IsArmed = IsBatteryLow = false;
+        IsArmed = IsBatteryLow = HasTelemetry = false;
+        BatteryLevel = 0;
         Position = null;
         HeadingDegrees = null;
     }

@@ -10,7 +10,8 @@ public sealed class VehicleItemViewModelTests
     {
         var row = new VehicleItemViewModel(DesktopTestData.Vehicle("UAV-01"));
         var quality = new LinkQualityDto(
-            1000, 4, 0.004, 0, RecentPacketLossRatio: 0.0123, MessagesPerSecond: 41.2, RoundTripMilliseconds: 12.4, Grade: "Good",
+            1000, 4, 0.004, 0, RecentPacketLossRatio: 0.0123, MessagesPerSecond: 41.2, RoundTripMilliseconds: 12.4,
+            LastFrameAt: DateTimeOffset.UnixEpoch, Grade: "Good",
             Radio: new RadioStatusDto(182, 176, 40, 42, 0, 0, 100, DateTimeOffset.UnixEpoch));
 
         row.Apply(new VehicleLinkResponse(row.Id, "Connected", null, 0, null, quality));
@@ -36,5 +37,15 @@ public sealed class VehicleItemViewModelTests
 
         row.LinkSummary.ShouldBeEmpty();
         row.LinkGrade.ShouldBe("Lost");
+    }
+
+    [Fact]
+    public void A_connected_link_without_a_counted_frame_waits_for_data_instead_of_reporting_lost()
+    {
+        var row = new VehicleItemViewModel(DesktopTestData.Vehicle("UAV-01"));
+
+        row.Apply(new VehicleLinkResponse(row.Id, "Connected", null, 0, null, new LinkQualityDto(0, 0, 0, 0)));
+
+        row.LinkSummary.ShouldBe(VehicleItemViewModel.WaitingForData);
     }
 }

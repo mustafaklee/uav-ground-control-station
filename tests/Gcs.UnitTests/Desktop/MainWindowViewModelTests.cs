@@ -123,4 +123,48 @@ public sealed class MainWindowViewModelTests : IAsyncDisposable
 
         _viewModel.BackendStatus.ShouldBe("Backend: Reconnecting");
     }
+
+    [Fact]
+    public async Task Link_rows_are_marked_not_live_while_the_backend_connection_is_down()
+    {
+        _api.Vehicles.Add(DesktopTestData.Vehicle("UAV-01"));
+        _realtime.RaiseState(BackendConnectionState.Connected);
+        await _viewModel.InitializeAsync(Ct);
+        _viewModel.Vehicles[0].IsStale.ShouldBeFalse();
+
+        _realtime.RaiseState(BackendConnectionState.Reconnecting);
+        _viewModel.Vehicles[0].IsStale.ShouldBeTrue();
+        _viewModel.BackendStateText.ShouldBe("Reconnecting");
+
+        _realtime.RaiseState(BackendConnectionState.Connected);
+        _viewModel.Vehicles[0].IsStale.ShouldBeFalse();
+        _viewModel.BackendStateText.ShouldBe("Online");
+    }
+
+    [Fact]
+    public void The_navigation_rail_switches_pages_and_click_to_add_opens_the_plan()
+    {
+        _viewModel.IsFlightPage.ShouldBeTrue();
+
+        _viewModel.ShowPageCommand.Execute(AppPage.Mission);
+        _viewModel.IsMissionPage.ShouldBeTrue();
+        _viewModel.IsFlightPage.ShouldBeFalse();
+        _viewModel.PageTitle.ShouldBe("Mission planning");
+
+        _viewModel.IsFlightPage = true;
+        _viewModel.CurrentPage.ShouldBe(AppPage.Flight);
+
+        _viewModel.Planner.IsAddingWaypoints = true;
+        _viewModel.CurrentPage.ShouldBe(AppPage.Mission);
+    }
+
+    [Fact]
+    public void A_backend_error_can_be_dismissed()
+    {
+        _viewModel.ErrorMessage = "Cannot reach the backend.";
+
+        _viewModel.DismissErrorCommand.Execute(null);
+
+        _viewModel.ErrorMessage.ShouldBeNull();
+    }
 }

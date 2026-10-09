@@ -30,7 +30,10 @@ public sealed partial class CommandPanelViewModel : ObservableObject
         _selectedVehicle = selectedVehicle;
         OperatorName = operatorName;
         MayCommand = mayCommand;
+        History.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasHistory));
     }
+
+    public bool HasHistory => History.Count > 0;
 
     public string OperatorName { get; }
 

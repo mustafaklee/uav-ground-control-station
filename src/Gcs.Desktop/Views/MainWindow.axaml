@@ -1,367 +1,730 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Gcs.Desktop.ViewModels"
+        xmlns:ui="using:Gcs.Desktop.Controls"
         xmlns:contracts="using:Gcs.Contracts.Missions"
         xmlns:cmd="using:Gcs.Contracts.Commands"
         xmlns:mapsui="clr-namespace:Mapsui.UI.Avalonia;assembly=Mapsui.UI.Avalonia"
         x:Class="Gcs.Desktop.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="{Binding Title}"
-        Width="1400" Height="860" MinWidth="1000" MinHeight="640"
-        Background="#0F1720">
+        Width="1440" Height="900" MinWidth="1100" MinHeight="680">
 
-  <Window.Styles>
-    <Style Selector="TextBlock.label">
-      <Setter Property="Foreground" Value="#8A9AAB" />
-      <Setter Property="FontSize" Value="12" />
-    </Style>
-    <Style Selector="TextBlock.value">
-      <Setter Property="Foreground" Value="#E6EDF3" />
-      <Setter Property="FontSize" Value="16" />
-      <Setter Property="FontWeight" Value="SemiBold" />
-      <Setter Property="FontFamily" Value="Consolas, Menlo, monospace" />
-    </Style>
-    <Style Selector="Border.panel">
-      <Setter Property="Background" Value="#16212C" />
-      <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="Padding" Value="12" />
-      <Setter Property="Margin" Value="0,0,0,8" />
-    </Style>
-    <Style Selector="TextBlock.header">
-      <Setter Property="Foreground" Value="#5DADE2" />
-      <Setter Property="FontSize" Value="11" />
-      <Setter Property="FontWeight" Value="Bold" />
-      <Setter Property="Margin" Value="0,0,0,8" />
-    </Style>
-    <Style Selector="TextBlock.status">
-      <Setter Property="Foreground" Value="#C9D1D9" />
-      <Setter Property="Margin" Value="0,0,24,0" />
-      <Setter Property="VerticalAlignment" Value="Center" />
-    </Style>
-  </Window.Styles>
+  <!--
+    Operations console layout (ADR-020):
+      ┌──────┬──────────────────────────────────────────────────────────────┐
+      │ rail │ top bar: page title · selected vehicle strip · backend · user │
+      │      ├───────────────────────────────────────────┬──────────────────┤
+      │      │ map (as large as possible) + overlays      │ side panel: page │
+      └──────┴───────────────────────────────────────────┴──────────────────┘
+  -->
+  <Window.KeyBindings>
+    <KeyBinding Gesture="F5" Command="{Binding RefreshCommand}" />
+    <KeyBinding Gesture="Ctrl+D1" Command="{Binding ShowPageCommand}" CommandParameter="{x:Static vm:AppPage.Flight}" />
+    <KeyBinding Gesture="Ctrl+D2" Command="{Binding ShowPageCommand}" CommandParameter="{x:Static vm:AppPage.Mission}" />
+  </Window.KeyBindings>
 
-  <DockPanel>
-    <!-- Toolbar -->
-    <Border DockPanel.Dock="Top" Background="#16212C" Padding="10,6" BorderBrush="#26323F" BorderThickness="0,0,0,1">
+  <Grid ColumnDefinitions="72,*">
+
+    <!-- ═════ Navigation rail ═════ -->
+    <Border Grid.Column="0" Background="{StaticResource Brush.Surface.0}" BorderBrush="{StaticResource Brush.Border.Subtle}" BorderThickness="0,0,1,0">
       <DockPanel>
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <TextBlock Text="UAV GCS" FontWeight="Bold" FontSize="16" Foreground="#E6EDF3" VerticalAlignment="Center" Margin="0,0,16,0" />
-          <Button Content="Refresh" Command="{Binding RefreshCommand}" />
-          <Button Content="Connect" Command="{Binding ConnectCommand}" Classes="accent" />
-          <Button Content="Disconnect" Command="{Binding DisconnectCommand}" />
-        </StackPanel>
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="12">
-          <TextBlock VerticalAlignment="Center" Foreground="#8A9AAB" Text="{Binding ServerAddress}" />
-          <TextBlock VerticalAlignment="Center" Foreground="#E6EDF3" Text="{Binding CurrentUser}" />
-          <Button Content="Sign out" Command="{Binding SignOutCommand}" />
-        </StackPanel>
-      </DockPanel>
-    </Border>
-
-    <!-- Status bar: Connection | GPS | Battery | Flight mode -->
-    <Border DockPanel.Dock="Bottom" Background="#16212C" Padding="12,6" BorderBrush="#26323F" BorderThickness="0,1,0,0">
-      <DockPanel>
-        <StackPanel Orientation="Horizontal">
-          <TextBlock Classes="status" Text="{Binding BackendStatus}" />
-          <TextBlock Classes="status" Text="{Binding SelectedVehicle.LinkState, StringFormat='Link: {0}', FallbackValue='Link: —'}" />
-          <TextBlock Classes="status" Text="{Binding Telemetry.Gps, StringFormat='GPS: {0}'}" />
-          <TextBlock Classes="status" Text="{Binding Telemetry.Battery, StringFormat='Battery: {0}'}" />
-          <TextBlock Classes="status" Text="{Binding Telemetry.FlightMode, StringFormat='Mode: {0}'}" />
-          <TextBlock Classes="status" Text="{Binding Telemetry.Armed}" FontWeight="Bold" />
-        </StackPanel>
-        <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" Foreground="#E74C3C"
-                   Text="{Binding ErrorMessage}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-      </DockPanel>
-    </Border>
-
-    <Grid ColumnDefinitions="*,400">
-      <!-- Map -->
-      <Panel Grid.Column="0">
-        <mapsui:MapControl x:Name="MapControl" />
-        <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="#B3FFFFFF" Padding="4,1" Margin="4">
-          <TextBlock x:Name="AttributionText" FontSize="11" Foreground="#333" />
+        <Border DockPanel.Dock="Top" Height="{StaticResource Size.TopBar}" BorderBrush="{StaticResource Brush.Border.Subtle}" BorderThickness="0,0,0,1">
+          <ui:StrokeIcon Data="{StaticResource Icon.Brand}" Width="28" Height="28" Foreground="{StaticResource Brush.Accent}" StrokeThickness="1.7"
+                         ToolTip.Tip="UAV Ground Control Station" />
         </Border>
-        <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" Padding="8,4"
-                Background="#CC0F1720" CornerRadius="4">
-          <StackPanel Spacing="2">
-            <CheckBox x:Name="FollowCheckBox" Content="Follow vehicle" IsChecked="True" Foreground="#E6EDF3" />
-            <CheckBox Content="Click map to add waypoints" IsChecked="{Binding Planner.IsAddingWaypoints}" Foreground="#F1C40F" />
+        <Button DockPanel.Dock="Bottom" Classes="ghost icon" Width="40" Height="40" Margin="0,0,0,14" HorizontalAlignment="Center"
+                Command="{Binding SignOutCommand}" ToolTip.Tip="Sign out" AutomationProperties.Name="Sign out">
+          <ui:StrokeIcon Data="{StaticResource Icon.SignOut}" Width="18" Height="18" />
+        </Button>
+        <StackPanel Margin="0,10,0,0" Spacing="2">
+          <RadioButton Classes="nav" GroupName="pages" IsChecked="{Binding IsFlightPage}"
+                       ToolTip.Tip="Flight operations (Ctrl+1)" AutomationProperties.Name="Flight operations">
+            <StackPanel Spacing="4">
+              <ui:StrokeIcon Data="{StaticResource Icon.Flight}" Width="20" Height="20" HorizontalAlignment="Center" StrokeThickness="1.7" />
+              <TextBlock Text="Flight" FontSize="{StaticResource FontSize.Overline}" FontWeight="Medium" HorizontalAlignment="Center" />
+            </StackPanel>
+          </RadioButton>
+          <RadioButton Classes="nav" GroupName="pages" IsChecked="{Binding IsMissionPage}"
+                       ToolTip.Tip="Mission planning (Ctrl+2)" AutomationProperties.Name="Mission planning">
+            <StackPanel Spacing="4">
+              <ui:StrokeIcon Data="{StaticResource Icon.Mission}" Width="20" Height="20" HorizontalAlignment="Center" StrokeThickness="1.7" />
+              <TextBlock Text="Mission" FontSize="{StaticResource FontSize.Overline}" FontWeight="Medium" HorizontalAlignment="Center" />
+            </StackPanel>
+          </RadioButton>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <DockPanel Grid.Column="1">
+
+      <!-- ═════ Top bar ═════ -->
+      <Border DockPanel.Dock="Top" Height="{StaticResource Size.TopBar}" Background="{StaticResource Brush.Surface.0}"
+              BorderBrush="{StaticResource Brush.Border.Subtle}" BorderThickness="0,0,0,1" Padding="20,0,12,0">
+        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+          <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="1" MinWidth="200">
+            <TextBlock Text="{Binding PageTitle}" FontSize="{StaticResource FontSize.Subtitle}" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding PageSubtitle}" Classes="caption tertiary" />
           </StackPanel>
-        </Border>
-      </Panel>
 
-      <!-- Right side: Flight (live data) and Mission (planner) tabs -->
-      <TabControl Grid.Column="1" Padding="0">
-        <TabItem Header="Flight" FontSize="14">
-      <ScrollViewer Padding="8">
-        <StackPanel>
-          <Border Classes="panel">
-            <StackPanel>
-              <TextBlock Classes="header" Text="VEHICLES" />
-              <ListBox ItemsSource="{Binding Vehicles}" SelectedItem="{Binding SelectedVehicle}" Background="Transparent" MaxHeight="220">
-                <ListBox.ItemTemplate>
-                  <DataTemplate x:DataType="vm:VehicleItemViewModel">
-                    <Grid ColumnDefinitions="Auto,*" Margin="0,2">
-                      <Ellipse Width="10" Height="10" Margin="0,0,10,0" VerticalAlignment="Center"
-                               Fill="{Binding LinkState, Converter={x:Static vm:LinkStateBrush.Instance}}" />
-                      <StackPanel Grid.Column="1">
-                        <TextBlock Text="{Binding Callsign}" FontWeight="SemiBold" Foreground="#E6EDF3" />
-                        <TextBlock Text="{Binding Description}" Classes="label" />
-                        <TextBlock Text="{Binding LinkState}" Classes="label" />
-                        <TextBlock Text="{Binding LinkSummary}" Classes="label" IsVisible="{Binding IsConnected}"
-                                   Foreground="{Binding LinkGrade, Converter={x:Static vm:LinkGradeBrush.Instance}}" />
+          <!-- The selected vehicle at a glance: always visible, whichever page is open -->
+          <Border Grid.Column="1" Margin="20,10" Padding="16,0,0,0" BorderBrush="{StaticResource Brush.Border}" BorderThickness="1,0,0,0"
+                  IsVisible="{Binding HasSelectedVehicle}" ClipToBounds="True">
+            <StackPanel Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Ellipse Classes="dot" Fill="{Binding SelectedVehicle.LinkState, Converter={x:Static vm:LinkStateBrush.Instance}, FallbackValue={x:Null}}" />
+                <TextBlock Text="{Binding SelectedVehicle.Callsign, FallbackValue=''}" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding SelectedVehicle.LinkState, FallbackValue=''}" Classes="caption" VerticalAlignment="Center" />
+              </StackPanel>
+              <Border Classes="badge danger" IsVisible="{Binding Telemetry.IsArmed}">
+                <TextBlock Text="ARMED" />
+              </Border>
+              <Border Classes="badge" IsVisible="{Binding !Telemetry.IsArmed}">
+                <TextBlock Text="{Binding Telemetry.Armed}" />
+              </Border>
+              <StackPanel Classes="optional" Orientation="Horizontal" Spacing="6" ToolTip.Tip="Flight mode">
+                <ui:StrokeIcon Data="{StaticResource Icon.Mode}" Width="14" Height="14" Foreground="{StaticResource Brush.Text.Tertiary}" />
+                <TextBlock Text="{Binding Telemetry.FlightMode}" Classes="mono" VerticalAlignment="Center" />
+              </StackPanel>
+              <StackPanel Classes="optional" Orientation="Horizontal" Spacing="6" ToolTip.Tip="GPS fix and satellites">
+                <ui:StrokeIcon Data="{StaticResource Icon.Satellite}" Width="14" Height="14" Foreground="{StaticResource Brush.Text.Tertiary}" />
+                <TextBlock Text="{Binding Telemetry.Gps}" Classes="mono" VerticalAlignment="Center" />
+              </StackPanel>
+              <StackPanel Classes="optional" Orientation="Horizontal" Spacing="6" ToolTip.Tip="Battery remaining">
+                <ui:StrokeIcon Data="{StaticResource Icon.Battery}" Width="14" Height="14" Foreground="{StaticResource Brush.Text.Tertiary}" />
+                <TextBlock Text="{Binding Telemetry.Battery}" Classes="mono" VerticalAlignment="Center"
+                           Foreground="{Binding Telemetry.IsBatteryLow, Converter={x:Static vm:BatteryBrush.Instance}}" />
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+          <!-- Backend connection: word + colour + dot; the server address is in the tooltip -->
+          <Border Grid.Column="2" Classes="badge" Margin="0,0,12,0" Padding="10,5"
+                  Classes.success="{Binding IsBackendConnected}" Classes.warning="{Binding !IsBackendConnected}"
+                  ToolTip.Tip="{Binding ServerAddress, StringFormat='Live connection to {0}'}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Ellipse Classes="dot" Width="7" Height="7"
+                       Fill="{Binding #BackendText.Foreground}" />
+              <TextBlock x:Name="BackendText" Text="{Binding BackendStateText, StringFormat='Backend {0}'}" />
+            </StackPanel>
+          </Border>
+
+          <!-- Account -->
+          <Button Grid.Column="3" Classes="ghost" Padding="6,4" AutomationProperties.Name="Account menu">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Border Width="30" Height="30" CornerRadius="15" Background="{StaticResource Brush.Surface.3}"
+                      BorderBrush="{StaticResource Brush.Border.Strong}" BorderThickness="1">
+                <TextBlock Text="{Binding Initials}" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{StaticResource Brush.Text.Primary}" />
+              </Border>
+              <StackPanel VerticalAlignment="Center" Spacing="0">
+                <TextBlock Text="{Binding OperatorName}" FontWeight="SemiBold" Foreground="{StaticResource Brush.Text.Primary}" />
+                <TextBlock Text="{Binding Role}" Classes="caption tertiary" />
+              </StackPanel>
+              <ui:StrokeIcon Data="{StaticResource Icon.ChevronDown}" Width="14" Height="14" />
+            </StackPanel>
+            <Button.Flyout>
+              <MenuFlyout Placement="BottomEdgeAlignedRight">
+                <MenuItem Header="{Binding CurrentUser, StringFormat='Signed in as {0}'}" IsEnabled="False" />
+                <MenuItem Header="{Binding ServerAddress, StringFormat='Server: {0}'}" IsEnabled="False" />
+                <Separator />
+                <MenuItem Header="Sign out" Command="{Binding SignOutCommand}">
+                  <MenuItem.Icon>
+                    <ui:StrokeIcon Data="{StaticResource Icon.SignOut}" />
+                  </MenuItem.Icon>
+                </MenuItem>
+              </MenuFlyout>
+            </Button.Flyout>
+          </Button>
+        </Grid>
+      </Border>
+
+      <Grid ColumnDefinitions="*,400">
+
+        <!-- ═════ Map ═════ -->
+        <Panel Grid.Column="0">
+          <mapsui:MapControl x:Name="MapControl" />
+
+          <!-- Map tools -->
+          <Border Classes="toolbar" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="16">
+            <StackPanel Orientation="Horizontal" Spacing="4">
+              <ToggleButton x:Name="FollowToggle" Classes="ghost" IsChecked="True" ToolTip.Tip="Keep the selected vehicle in view">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <ui:StrokeIcon Data="{StaticResource Icon.Crosshair}" />
+                  <TextBlock Text="Follow vehicle" />
+                </StackPanel>
+              </ToggleButton>
+              <ToggleButton Classes="ghost" IsChecked="{Binding Planner.IsAddingWaypoints}"
+                            ToolTip.Tip="Click on the map to append waypoints to the open mission">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <ui:StrokeIcon Data="{StaticResource Icon.Waypoint}" />
+                  <TextBlock Text="Add waypoints" />
+                </StackPanel>
+              </ToggleButton>
+            </StackPanel>
+          </Border>
+
+          <!-- Errors from the backend, dismissable; they stay until dismissed or the next action succeeds -->
+          <Border Classes="alert danger" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="16,72,16,0" MaxWidth="640"
+                  BoxShadow="0 6 18 0 #66000000"
+                  IsVisible="{Binding ErrorMessage, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <DockPanel>
+              <ui:StrokeIcon Classes="lead" Data="{StaticResource Icon.Error}" DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,1,10,0" />
+              <Button DockPanel.Dock="Right" Classes="ghost icon" Width="24" Height="24" Margin="12,-3,-6,-3" VerticalAlignment="Top"
+                      Command="{Binding DismissErrorCommand}" ToolTip.Tip="Dismiss" AutomationProperties.Name="Dismiss error">
+                <ui:StrokeIcon Data="{StaticResource Icon.Close}" Width="14" Height="14" />
+              </Button>
+              <TextBlock Text="{Binding ErrorMessage}" />
+            </DockPanel>
+          </Border>
+
+          <!-- Waypoint mode needs to be obvious: clicks on the map change the plan -->
+          <Border Classes="alert" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="16,0,16,28"
+                  BoxShadow="0 6 18 0 #66000000" IsVisible="{Binding Planner.IsAddingWaypoints}">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <ui:StrokeIcon Classes="lead" Data="{StaticResource Icon.Waypoint}" />
+              <TextBlock Text="Click the map to add a waypoint. Turn off “Add waypoints” to pan freely." />
+            </StackPanel>
+          </Border>
+
+          <Border HorizontalAlignment="Right" VerticalAlignment="Bottom" Background="#B3FFFFFF" Padding="4,1" Margin="4">
+            <TextBlock x:Name="AttributionText" FontSize="11" Foreground="#333" />
+          </Border>
+
+          <ProgressBar Classes="busy" VerticalAlignment="Top" IsVisible="{Binding RefreshCommand.IsRunning}" />
+        </Panel>
+
+        <!-- ═════ Side panel ═════ -->
+        <Border Grid.Column="1" Background="{StaticResource Brush.Surface.0}" BorderBrush="{StaticResource Brush.Border.Subtle}" BorderThickness="1,0,0,0">
+          <Panel>
+
+            <!-- ───── Flight page ───── -->
+            <ScrollViewer IsVisible="{Binding IsFlightPage}" VerticalScrollBarVisibility="Auto">
+              <StackPanel>
+
+                <!-- Vehicles -->
+                <Border Classes="section">
+                  <StackPanel Spacing="10">
+                    <DockPanel>
+                      <Button DockPanel.Dock="Right" Classes="ghost icon" Width="28" Height="28" Command="{Binding RefreshCommand}"
+                              ToolTip.Tip="Refresh the vehicle list (F5)" AutomationProperties.Name="Refresh vehicles">
+                        <ui:StrokeIcon Data="{StaticResource Icon.Refresh}" />
+                      </Button>
+                      <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Classes="overline" Text="VEHICLES" />
+                        <TextBlock Classes="overline" Text="{Binding Vehicles.Count}" Foreground="{StaticResource Brush.Text.Secondary}" />
+                      </StackPanel>
+                    </DockPanel>
+
+                    <StackPanel Spacing="6" Margin="0,8" IsVisible="{Binding !HasVehicles}">
+                      <ui:StrokeIcon Data="{StaticResource Icon.Flight}" Width="24" Height="24" HorizontalAlignment="Left"
+                                     Foreground="{StaticResource Brush.Text.Tertiary}" />
+                      <TextBlock Text="No active vehicles" FontWeight="SemiBold" />
+                      <TextBlock Classes="caption" TextWrapping="Wrap"
+                                 Text="Register a vehicle through the API (POST /api/v1/vehicles), then refresh. The simulator in docker compose sends as system id 1 on UDP 14550." />
+                    </StackPanel>
+
+                    <ListBox Classes="rows" ItemsSource="{Binding Vehicles}" SelectedItem="{Binding SelectedVehicle}" MaxHeight="300"
+                             IsVisible="{Binding HasVehicles}" AutomationProperties.Name="Vehicles">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:VehicleItemViewModel">
+                          <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
+                            <Ellipse Classes="dot" Margin="0,0,10,0" Fill="{Binding LinkState, Converter={x:Static vm:LinkStateBrush.Instance}}" />
+                            <TextBlock Grid.Column="1" Text="{Binding Callsign}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <Border Grid.Column="2" Classes="badge" Classes.success="{Binding IsConnected}"
+                                    Classes.warning="{Binding IsTransitioning}" Classes.danger="{Binding IsFaulted}">
+                              <TextBlock Text="{Binding LinkState}" />
+                            </Border>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Description}" Classes="caption tertiary"
+                                       Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+                            <DockPanel Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Margin="0,6,0,0"
+                                       IsVisible="{Binding IsConnected}" ToolTip.Tip="Link quality over the last 10 seconds">
+                              <ui:StrokeIcon DockPanel.Dock="Left" Data="{StaticResource Icon.Signal}" Width="14" Height="14" Margin="0,0,6,0"
+                                             VerticalAlignment="Top" Foreground="{Binding LinkGrade, Converter={x:Static vm:LinkGradeBrush.Instance}}" />
+                              <TextBlock Text="{Binding LinkSummary}" Classes="caption" TextWrapping="Wrap"
+                                         Foreground="{Binding LinkGrade, Converter={x:Static vm:LinkGradeBrush.Instance}}" />
+                            </DockPanel>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Classes="caption" Margin="0,4,0,0" TextWrapping="Wrap"
+                                       Foreground="{StaticResource Brush.Warning}" IsVisible="{Binding IsStale}"
+                                       Text="Not live: the connection to the backend is down." />
+                            <TextBlock Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" Classes="caption" Margin="0,4,0,0" TextWrapping="Wrap"
+                                       Foreground="{StaticResource Brush.Danger}" Text="{Binding FaultReason}"
+                                       IsVisible="{Binding FaultReason, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                          </Grid>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <Grid ColumnDefinitions="*,8,*" IsVisible="{Binding HasVehicles}">
+                      <Button Grid.Column="0" Classes="primary" HorizontalAlignment="Stretch" Command="{Binding ConnectCommand}"
+                              ToolTip.Tip="Open the MAVLink link to the selected vehicle">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Plug}" />
+                          <TextBlock Text="Connect" />
+                        </StackPanel>
+                      </Button>
+                      <Button Grid.Column="2" HorizontalAlignment="Stretch" Command="{Binding DisconnectCommand}"
+                              ToolTip.Tip="Close the link to the selected vehicle">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Unplug}" />
+                          <TextBlock Text="Disconnect" />
+                        </StackPanel>
+                      </Button>
+                    </Grid>
+                  </StackPanel>
+                </Border>
+
+                <!-- Vehicle control: lease, commands, last answer, audit -->
+                <Border Classes="section">
+                  <StackPanel DataContext="{Binding Commands}" x:DataType="vm:CommandPanelViewModel" Spacing="12">
+                    <TextBlock Classes="overline" Text="VEHICLE CONTROL" />
+
+                    <Border Classes="tile">
+                      <DockPanel>
+                        <Panel DockPanel.Dock="Left" Margin="0,1,10,0" VerticalAlignment="Top">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Lock}" Foreground="{StaticResource Brush.Success}" IsVisible="{Binding HasControl}" />
+                          <ui:StrokeIcon Data="{StaticResource Icon.Unlock}" Foreground="{StaticResource Brush.Text.Tertiary}" IsVisible="{Binding !HasControl}" />
+                        </Panel>
+                        <TextBlock Text="{Binding ControlText}" TextWrapping="Wrap" />
+                      </DockPanel>
+                    </Border>
+                    <Grid ColumnDefinitions="*,8,*">
+                      <Button Grid.Column="0" Classes="primary" HorizontalAlignment="Stretch" Command="{Binding TakeControlCommand}"
+                              ToolTip.Tip="Take exclusive control: only one operator can command a vehicle at a time">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Lock}" />
+                          <TextBlock Text="Take control" />
+                        </StackPanel>
+                      </Button>
+                      <Button Grid.Column="2" HorizontalAlignment="Stretch" Command="{Binding ReleaseControlCommand}"
+                              ToolTip.Tip="Release control so another operator can take it">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Unlock}" />
+                          <TextBlock Text="Release" />
+                        </StackPanel>
+                      </Button>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,8,*" RowDefinitions="Auto,8,Auto,8,Auto">
+                      <Button Grid.Row="0" Grid.Column="0" HorizontalAlignment="Stretch" Command="{Binding ArmCommand}"
+                              ToolTip.Tip="Start the motors (asks for confirmation)">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Power}" />
+                          <TextBlock Text="ARM" />
+                        </StackPanel>
+                      </Button>
+                      <Button Grid.Row="0" Grid.Column="2" HorizontalAlignment="Stretch" Command="{Binding DisarmCommand}"
+                              ToolTip.Tip="Stop the motors">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Disarm}" />
+                          <TextBlock Text="DISARM" />
+                        </StackPanel>
+                      </Button>
+                      <Button Grid.Row="2" Grid.Column="0" HorizontalAlignment="Stretch" Command="{Binding TakeoffCommand}"
+                              ToolTip.Tip="Take off to the altitude on the right (asks for confirmation)">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Takeoff}" />
+                          <TextBlock Text="TAKEOFF" />
+                        </StackPanel>
+                      </Button>
+                      <NumericUpDown Grid.Row="2" Grid.Column="2" Value="{Binding TakeoffAltitude}" Minimum="2" Maximum="500" Increment="5"
+                                     FormatString="0 m" ToolTip.Tip="Takeoff altitude above home" AutomationProperties.Name="Takeoff altitude" />
+                      <Button Grid.Row="4" Grid.Column="0" Classes="warning" HorizontalAlignment="Stretch" Command="{Binding LandCommand}"
+                              ToolTip.Tip="Land where the vehicle is">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Land}" />
+                          <TextBlock Text="LAND" />
+                        </StackPanel>
+                      </Button>
+                      <Button Grid.Row="4" Grid.Column="2" Classes="warning" HorizontalAlignment="Stretch" Command="{Binding ReturnToLaunchCommand}"
+                              ToolTip.Tip="Return to the launch point and land">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Home}" />
+                          <TextBlock Text="RTL" />
+                        </StackPanel>
+                      </Button>
+                    </Grid>
+
+                    <StackPanel>
+                      <Label Classes="field" Content="Flight mode" Target="{Binding #ModeBox}" />
+                      <Grid ColumnDefinitions="*,8,Auto">
+                        <ComboBox x:Name="ModeBox" ItemsSource="{Binding FlightModes}" SelectedItem="{Binding SelectedMode}"
+                                  HorizontalAlignment="Stretch" PlaceholderText="Select a mode" />
+                        <Button Grid.Column="2" Content="Set mode" Command="{Binding SetModeCommand}" />
+                      </Grid>
+                    </StackPanel>
+
+                    <Border Classes="alert success" Classes.danger="{Binding LastResultIsError}"
+                            IsVisible="{Binding LastResult, Converter={x:Static ObjectConverters.IsNotNull}}">
+                      <DockPanel>
+                        <Panel DockPanel.Dock="Left" Margin="0,1,10,0" VerticalAlignment="Top">
+                          <ui:StrokeIcon Classes="lead" Data="{StaticResource Icon.Check}" IsVisible="{Binding !LastResultIsError}" />
+                          <ui:StrokeIcon Classes="lead" Data="{StaticResource Icon.Error}" IsVisible="{Binding LastResultIsError}" />
+                        </Panel>
+                        <TextBlock Text="{Binding LastResult}" />
+                      </DockPanel>
+                    </Border>
+
+                    <StackPanel Spacing="6">
+                      <StackPanel Orientation="Horizontal" Spacing="6">
+                        <ui:StrokeIcon Data="{StaticResource Icon.History}" Width="13" Height="13" Foreground="{StaticResource Brush.Text.Tertiary}" />
+                        <TextBlock Classes="overline" Text="RECENT COMMANDS" />
+                      </StackPanel>
+                      <TextBlock Classes="caption tertiary" Text="No commands have been sent to this vehicle yet." IsVisible="{Binding !HasHistory}" />
+                      <ItemsControl ItemsSource="{Binding History}" IsVisible="{Binding HasHistory}">
+                        <ItemsControl.ItemTemplate>
+                          <DataTemplate x:DataType="cmd:CommandAuditResponse">
+                            <Grid ColumnDefinitions="64,*,Auto" Margin="0,3">
+                              <TextBlock Classes="caption mono tertiary" Text="{Binding RequestedAt, StringFormat='{}{0:HH:mm:ss}'}" />
+                              <TextBlock Grid.Column="1" Classes="caption" TextTrimming="CharacterEllipsis">
+                                <!-- Mode=OneWay: Run.Text binds two-way by default and would write back into the entry. -->
+                                <Run Text="{Binding Command, Mode=OneWay}" Foreground="{StaticResource Brush.Text.Primary}" FontWeight="Medium" />
+                                <Run Text="{Binding Operator, Mode=OneWay, StringFormat='· {0}'}" Foreground="{StaticResource Brush.Text.Tertiary}" />
+                              </TextBlock>
+                              <TextBlock Grid.Column="2" Classes="caption" FontWeight="SemiBold" Text="{Binding Outcome}"
+                                         Foreground="{Binding Outcome, Converter={x:Static vm:OutcomeBrush.Instance}}" />
+                            </Grid>
+                          </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                      </ItemsControl>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+
+                <!-- Telemetry -->
+                <Border Classes="section" BorderThickness="0">
+                  <StackPanel Spacing="12">
+                    <DockPanel>
+                      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" ToolTip.Tip="Time of the last telemetry message">
+                        <ui:StrokeIcon Data="{StaticResource Icon.Clock}" Width="13" Height="13" Foreground="{StaticResource Brush.Text.Tertiary}" />
+                        <TextBlock Classes="caption mono" Text="{Binding Telemetry.LastUpdate}" />
+                      </StackPanel>
+                      <TextBlock Classes="overline" Text="TELEMETRY" VerticalAlignment="Center" />
+                    </DockPanel>
+
+                    <Border Classes="alert" IsVisible="{Binding !Telemetry.HasTelemetry}">
+                      <DockPanel>
+                        <ui:StrokeIcon Classes="lead" Data="{StaticResource Icon.Info}" DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,1,10,0" />
+                        <TextBlock Text="No telemetry from the selected vehicle yet. Connect it to see live data." />
+                      </DockPanel>
+                    </Border>
+
+                    <!-- Primary flight data -->
+                    <Grid ColumnDefinitions="*,8,*" RowDefinitions="Auto,8,Auto">
+                      <Border Grid.Row="0" Grid.Column="0" Classes="tile">
+                        <StackPanel Spacing="2">
+                          <TextBlock Classes="overline" Text="ALTITUDE · REL" />
+                          <TextBlock Classes="value-lg" Text="{Binding Telemetry.AltitudeRelative}" />
+                        </StackPanel>
+                      </Border>
+                      <Border Grid.Row="0" Grid.Column="2" Classes="tile">
+                        <StackPanel Spacing="2">
+                          <TextBlock Classes="overline" Text="GROUND SPEED" />
+                          <TextBlock Classes="value-lg" Text="{Binding Telemetry.GroundSpeed}" />
+                        </StackPanel>
+                      </Border>
+                      <Border Grid.Row="2" Grid.Column="0" Classes="tile">
+                        <StackPanel Spacing="2">
+                          <TextBlock Classes="overline" Text="HEADING" />
+                          <TextBlock Classes="value-lg" Text="{Binding Telemetry.Heading}" />
+                        </StackPanel>
+                      </Border>
+                      <Border Grid.Row="2" Grid.Column="2" Classes="tile">
+                        <StackPanel Spacing="2">
+                          <TextBlock Classes="overline" Text="CLIMB RATE" />
+                          <TextBlock Classes="value-lg" Text="{Binding Telemetry.ClimbRate}" />
+                        </StackPanel>
+                      </Border>
+                    </Grid>
+
+                    <!-- Flight state and power -->
+                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
+                      <StackPanel Grid.Column="0" Spacing="2">
+                        <TextBlock Classes="overline" Text="FLIGHT MODE" />
+                        <TextBlock Classes="value" Text="{Binding Telemetry.FlightMode}" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="1" Spacing="2">
+                        <TextBlock Classes="overline" Text="STATE" />
+                        <TextBlock Classes="value" Text="{Binding Telemetry.Armed}"
+                                   Foreground="{Binding Telemetry.IsArmed, Converter={x:Static vm:ArmedBrush.Instance}}" />
                       </StackPanel>
                     </Grid>
-                  </DataTemplate>
-                </ListBox.ItemTemplate>
-              </ListBox>
-            </StackPanel>
-          </Border>
 
-          <!-- Vehicle control: lease, commands, last answer, audit -->
-          <Border Classes="panel">
-            <StackPanel DataContext="{Binding Commands}" x:DataType="vm:CommandPanelViewModel" Spacing="6">
-              <TextBlock Classes="header" Text="CONTROL" />
-              <TextBlock Text="{Binding ControlText}" Foreground="#C9D1D9" TextWrapping="Wrap" />
-              <StackPanel Orientation="Horizontal" Spacing="6">
-                <Button Content="Take control" Command="{Binding TakeControlCommand}" Classes="accent" />
-                <Button Content="Release" Command="{Binding ReleaseControlCommand}" />
-              </StackPanel>
-              <UniformGrid Columns="3" Margin="0,4,0,0">
-                <Button Content="ARM" Command="{Binding ArmCommand}" HorizontalAlignment="Stretch" Margin="0,0,4,4" />
-                <Button Content="DISARM" Command="{Binding DisarmCommand}" HorizontalAlignment="Stretch" Margin="0,0,4,4" />
-                <Button Content="LAND" Command="{Binding LandCommand}" HorizontalAlignment="Stretch" Margin="0,0,0,4"
-                        Background="#B9770E" Foreground="White" />
-                <Button Content="TAKEOFF" Command="{Binding TakeoffCommand}" HorizontalAlignment="Stretch" Margin="0,0,4,0" />
-                <NumericUpDown Value="{Binding TakeoffAltitude}" Minimum="2" Maximum="500" Increment="5" FormatString="0 m"
-                               Margin="0,0,4,0" ToolTip.Tip="Takeoff altitude above home" />
-                <Button Content="RTL" Command="{Binding ReturnToLaunchCommand}" HorizontalAlignment="Stretch"
-                        Background="#B9770E" Foreground="White" />
-              </UniformGrid>
-              <Grid ColumnDefinitions="*,Auto">
-                <ComboBox ItemsSource="{Binding FlightModes}" SelectedItem="{Binding SelectedMode}" HorizontalAlignment="Stretch"
-                          PlaceholderText="Flight mode" />
-                <Button Grid.Column="1" Content="Set mode" Command="{Binding SetModeCommand}" Margin="6,0,0,0" />
-              </Grid>
-              <TextBlock Text="{Binding LastResult}" TextWrapping="Wrap" FontSize="12"
-                         Foreground="{Binding LastResultIsError, Converter={x:Static vm:ResultBrush.Instance}}"
-                         IsVisible="{Binding LastResult, Converter={x:Static ObjectConverters.IsNotNull}}" />
-              <TextBlock Classes="label" Text="Recent commands" Margin="0,4,0,0" />
-              <!-- Mode=OneWay: Run.Text binds two-way by default and would write "by pilot-1" back into the entry. -->
-              <ItemsControl ItemsSource="{Binding History}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate x:DataType="cmd:CommandAuditResponse">
-                    <TextBlock FontSize="11" Foreground="#8A9AAB" TextTrimming="CharacterEllipsis">
-                      <Run Text="{Binding RequestedAt, Mode=OneWay, StringFormat='{}{0:HH:mm:ss}'}" />
-                      <Run Text="{Binding Command, Mode=OneWay}" Foreground="#E6EDF3" />
-                      <Run Text="{Binding Outcome, Mode=OneWay}" Foreground="{Binding Outcome, Converter={x:Static vm:OutcomeBrush.Instance}}" />
-                      <Run Text="{Binding Operator, Mode=OneWay, StringFormat='by {0}'}" />
-                    </TextBlock>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </StackPanel>
-          </Border>
-
-          <Border Classes="panel">
-            <StackPanel>
-              <TextBlock Classes="header" Text="VEHICLE INFORMATION" />
-              <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto">
-                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,8">
-                  <TextBlock Classes="label" Text="Flight mode" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.FlightMode}" />
-                </StackPanel>
-                <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,8">
-                  <TextBlock Classes="label" Text="State" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.Armed}"
-                             Foreground="{Binding Telemetry.IsArmed, Converter={x:Static vm:ArmedBrush.Instance}}" />
-                </StackPanel>
-                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,8">
-                  <TextBlock Classes="label" Text="Latitude" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.Latitude}" />
-                </StackPanel>
-                <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,8">
-                  <TextBlock Classes="label" Text="Longitude" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.Longitude}" />
-                </StackPanel>
-                <StackPanel Grid.Row="2" Grid.Column="0">
-                  <TextBlock Classes="label" Text="GPS" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.Gps}" FontSize="13" />
-                </StackPanel>
-                <StackPanel Grid.Row="2" Grid.Column="1">
-                  <TextBlock Classes="label" Text="Last update" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.LastUpdate}" FontSize="13" />
-                </StackPanel>
-              </Grid>
-            </StackPanel>
-          </Border>
-
-          <Border Classes="panel">
-            <StackPanel>
-              <TextBlock Classes="header" Text="TELEMETRY" />
-              <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
-                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,8">
-                  <TextBlock Classes="label" Text="Altitude (rel)" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.AltitudeRelative}" />
-                </StackPanel>
-                <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,8">
-                  <TextBlock Classes="label" Text="Altitude (MSL)" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.AltitudeMsl}" />
-                </StackPanel>
-                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,8">
-                  <TextBlock Classes="label" Text="Ground speed" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.GroundSpeed}" />
-                </StackPanel>
-                <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,8">
-                  <TextBlock Classes="label" Text="Air speed" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.AirSpeed}" />
-                </StackPanel>
-                <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,8">
-                  <TextBlock Classes="label" Text="Heading" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.Heading}" />
-                </StackPanel>
-                <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,0,0,8">
-                  <TextBlock Classes="label" Text="Climb" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.ClimbRate}" />
-                </StackPanel>
-                <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,0,8">
-                  <TextBlock Classes="label" Text="Roll" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.Roll}" />
-                </StackPanel>
-                <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,0,0,8">
-                  <TextBlock Classes="label" Text="Pitch" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.Pitch}" />
-                </StackPanel>
-                <StackPanel Grid.Row="4" Grid.Column="0">
-                  <TextBlock Classes="label" Text="Yaw" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.Yaw}" />
-                </StackPanel>
-              </Grid>
-            </StackPanel>
-          </Border>
-
-          <Border Classes="panel">
-            <StackPanel>
-              <TextBlock Classes="header" Text="BATTERY" />
-              <Grid ColumnDefinitions="*,*">
-                <StackPanel Grid.Column="0">
-                  <TextBlock Classes="label" Text="Remaining" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.Battery}" FontSize="22"
-                             Foreground="{Binding Telemetry.IsBatteryLow, Converter={x:Static vm:BatteryBrush.Instance}}" />
-                </StackPanel>
-                <StackPanel Grid.Column="1">
-                  <TextBlock Classes="label" Text="Voltage" />
-                  <TextBlock Classes="value" Text="{Binding Telemetry.BatteryVoltage}" FontSize="22" />
-                </StackPanel>
-              </Grid>
-            </StackPanel>
-          </Border>
-        </StackPanel>
-      </ScrollViewer>
-        </TabItem>
-
-        <TabItem Header="Mission" FontSize="14">
-          <ScrollViewer Padding="8">
-            <StackPanel DataContext="{Binding Planner}" x:DataType="vm:MissionPlannerViewModel">
-              <Border Classes="panel">
-                <StackPanel Spacing="6">
-                  <TextBlock Classes="header" Text="MISSIONS" />
-                  <Grid ColumnDefinitions="*,Auto">
-                    <ComboBox ItemsSource="{Binding Missions}" SelectedItem="{Binding SelectedMission}"
-                              PlaceholderText="Open a saved mission" HorizontalAlignment="Stretch">
-                      <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="contracts:MissionSummaryResponse">
-                          <TextBlock>
-                            <Run Text="{Binding Name, Mode=OneWay}" />
-                            <Run Text="{Binding ItemCount, Mode=OneWay, StringFormat=' · {0} items'}" Foreground="#8A9AAB" />
-                          </TextBlock>
-                        </DataTemplate>
-                      </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <Button Grid.Column="1" Content="New" Command="{Binding NewMissionCommand}" Margin="6,0,0,0" />
-                  </Grid>
-                  <TextBlock Classes="label" Text="Name" />
-                  <TextBox Text="{Binding Name}" />
-                  <StackPanel Orientation="Horizontal" Spacing="16">
-                    <TextBlock Classes="label" Text="{Binding Distance, StringFormat='Route: {0}'}" />
-                    <TextBlock Classes="label" Text="{Binding Items.Count, StringFormat='Items: {0}'}" />
-                    <TextBlock Text="FLYABLE" Foreground="LimeGreen" FontSize="12" FontWeight="Bold" IsVisible="{Binding IsFlyable}" />
-                  </StackPanel>
-                </StackPanel>
-              </Border>
-
-              <Border Classes="panel">
-                <StackPanel Spacing="6">
-                  <TextBlock Classes="header" Text="ITEMS" />
-                  <ToggleButton Content="Click map to add waypoints" IsChecked="{Binding IsAddingWaypoints}" HorizontalAlignment="Stretch" />
-                  <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Button Content="+ Takeoff" Command="{Binding AddItemCommand}" CommandParameter="Takeoff" />
-                    <Button Content="+ RTL" Command="{Binding AddItemCommand}" CommandParameter="ReturnToLaunch" />
-                    <Button Content="+ Land" Command="{Binding AddItemCommand}" CommandParameter="Land" />
-                  </StackPanel>
-                  <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" Background="Transparent" MaxHeight="260">
-                    <ListBox.ItemTemplate>
-                      <DataTemplate x:DataType="vm:MissionItemViewModel">
-                        <StackPanel Margin="0,1">
-                          <TextBlock Text="{Binding Title}" Foreground="#E6EDF3" FontWeight="SemiBold" />
-                          <TextBlock Text="{Binding Issue}" Foreground="#E74C3C" FontSize="11" TextWrapping="Wrap"
-                                     IsVisible="{Binding Issue, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                    <StackPanel Spacing="6">
+                      <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Classes="caption mono" Text="{Binding Telemetry.BatteryVoltage}" VerticalAlignment="Bottom" />
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                          <TextBlock Classes="overline" Text="BATTERY" VerticalAlignment="Center" />
+                          <TextBlock Classes="value" Text="{Binding Telemetry.Battery}"
+                                     Foreground="{Binding Telemetry.IsBatteryLow, Converter={x:Static vm:BatteryBrush.Instance}}" />
+                          <Border Classes="badge danger" IsVisible="{Binding Telemetry.IsBatteryLow}">
+                            <TextBlock Text="LOW" />
+                          </Border>
                         </StackPanel>
-                      </DataTemplate>
-                    </ListBox.ItemTemplate>
-                  </ListBox>
-                  <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Button Content="Up" Command="{Binding MoveUpCommand}" />
-                    <Button Content="Down" Command="{Binding MoveDownCommand}" />
-                    <Button Content="Remove" Command="{Binding RemoveItemCommand}" />
-                  </StackPanel>
-                </StackPanel>
-              </Border>
+                      </DockPanel>
+                      <ProgressBar Minimum="0" Maximum="100" Value="{Binding Telemetry.BatteryLevel}" Height="6" MinHeight="6" CornerRadius="3"
+                                   Background="{StaticResource Brush.Surface.3}"
+                                   Foreground="{Binding Telemetry.IsBatteryLow, Converter={x:Static vm:BatteryBrush.Instance}}"
+                                   AutomationProperties.Name="Battery remaining" />
+                    </StackPanel>
 
-              <Border Classes="panel" IsVisible="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}">
-                <StackPanel DataContext="{Binding SelectedItem}" x:DataType="vm:MissionItemViewModel" Spacing="4">
-                  <TextBlock Classes="header" Text="{Binding Title, StringFormat='EDIT ITEM {0}'}" />
-                  <ComboBox ItemsSource="{x:Static vm:MissionItemViewModel.Commands}" SelectedItem="{Binding Command}" HorizontalAlignment="Stretch" />
-                  <Grid ColumnDefinitions="*,8,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
-                    <TextBlock Grid.Row="0" Grid.Column="0" Classes="label" Text="Latitude (deg)" />
-                    <TextBlock Grid.Row="0" Grid.Column="2" Classes="label" Text="Longitude (deg)" />
-                    <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding Latitude, Converter={x:Static vm:NullableDoubleConverter.Instance}}" />
-                    <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding Longitude, Converter={x:Static vm:NullableDoubleConverter.Instance}}" />
-                    <TextBlock Grid.Row="2" Grid.Column="0" Classes="label" Text="Altitude (m above home)" Margin="0,4,0,0" />
-                    <TextBlock Grid.Row="2" Grid.Column="2" Classes="label" Text="Hold (s, loiter)" Margin="0,4,0,0" />
-                    <TextBox Grid.Row="3" Grid.Column="0" Text="{Binding Altitude, Converter={x:Static vm:NullableDoubleConverter.Instance}}" />
-                    <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding HoldSeconds, Converter={x:Static vm:NullableDoubleConverter.Instance}}" />
-                    <TextBlock Grid.Row="4" Grid.Column="0" Classes="label" Text="Speed (m/s, empty = keep)" Margin="0,4,0,0" />
-                    <TextBox Grid.Row="5" Grid.Column="0" Text="{Binding Speed, Converter={x:Static vm:NullableDoubleConverter.Instance}}" />
-                  </Grid>
-                </StackPanel>
-              </Border>
+                    <Rectangle Classes="divider" />
 
-              <Border Classes="panel">
-                <StackPanel Spacing="6">
-                  <TextBlock Classes="header" Text="CHECKS AND TRANSFER" />
-                  <ItemsControl ItemsSource="{Binding Issues}">
-                    <ItemsControl.ItemTemplate>
-                      <DataTemplate x:DataType="x:String">
-                        <TextBlock Text="{Binding StringFormat='- {0}'}" Foreground="#F39C12" FontSize="12" TextWrapping="Wrap" />
-                      </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                  </ItemsControl>
-                  <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Button Content="Save" Command="{Binding SaveCommand}" />
-                    <Button Content="Upload to vehicle" Command="{Binding UploadCommand}" Classes="accent" />
+                    <!-- Attitude, position, navigation -->
+                    <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,12,Auto,12,Auto">
+                      <StackPanel Grid.Row="0" Grid.Column="0" Spacing="2">
+                        <TextBlock Classes="overline" Text="ROLL" />
+                        <TextBlock Classes="value" Text="{Binding Telemetry.Roll}" />
+                      </StackPanel>
+                      <StackPanel Grid.Row="0" Grid.Column="1" Spacing="2">
+                        <TextBlock Classes="overline" Text="PITCH" />
+                        <TextBlock Classes="value" Text="{Binding Telemetry.Pitch}" />
+                      </StackPanel>
+                      <StackPanel Grid.Row="0" Grid.Column="2" Spacing="2">
+                        <TextBlock Classes="overline" Text="YAW" />
+                        <TextBlock Classes="value" Text="{Binding Telemetry.Yaw}" />
+                      </StackPanel>
+                      <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Spacing="2">
+                        <TextBlock Classes="overline" Text="POSITION · LAT / LON" />
+                        <TextBlock Classes="mono" FontSize="{StaticResource FontSize.Body}">
+                          <Run Text="{Binding Telemetry.Latitude, Mode=OneWay}" />
+                          <Run Text="  " />
+                          <Run Text="{Binding Telemetry.Longitude, Mode=OneWay}" />
+                        </TextBlock>
+                      </StackPanel>
+                      <StackPanel Grid.Row="2" Grid.Column="2" Spacing="2">
+                        <TextBlock Classes="overline" Text="ALT · MSL" />
+                        <TextBlock Classes="mono" Text="{Binding Telemetry.AltitudeMsl}" />
+                      </StackPanel>
+                      <StackPanel Grid.Row="4" Grid.Column="0" Spacing="2">
+                        <TextBlock Classes="overline" Text="AIR SPEED" />
+                        <TextBlock Classes="mono" Text="{Binding Telemetry.AirSpeed}" />
+                      </StackPanel>
+                      <StackPanel Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="2" Spacing="2">
+                        <TextBlock Classes="overline" Text="GPS" />
+                        <TextBlock Classes="mono" Text="{Binding Telemetry.Gps}" />
+                      </StackPanel>
+                    </Grid>
                   </StackPanel>
-                  <StackPanel Orientation="Horizontal" Spacing="6">
-                    <Button Content="Read from vehicle" Command="{Binding DownloadFromVehicleCommand}" />
-                    <Button Content="Archive" Command="{Binding ArchiveCommand}" IsEnabled="{Binding IsSaved}" />
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+
+            <!-- ───── Mission page ───── -->
+            <ScrollViewer IsVisible="{Binding IsMissionPage}" VerticalScrollBarVisibility="Auto">
+              <StackPanel DataContext="{Binding Planner}" x:DataType="vm:MissionPlannerViewModel">
+
+                <Border Classes="section">
+                  <StackPanel Spacing="12">
+                    <TextBlock Classes="overline" Text="MISSION" />
+                    <Grid ColumnDefinitions="*,8,Auto">
+                      <ComboBox ItemsSource="{Binding Missions}" SelectedItem="{Binding SelectedMission}"
+                                PlaceholderText="Open a saved mission" HorizontalAlignment="Stretch" AutomationProperties.Name="Saved missions">
+                        <ComboBox.ItemTemplate>
+                          <DataTemplate x:DataType="contracts:MissionSummaryResponse">
+                            <TextBlock>
+                              <Run Text="{Binding Name, Mode=OneWay}" />
+                              <Run Text="{Binding ItemCount, Mode=OneWay, StringFormat=' · {0} items'}" Foreground="{StaticResource Brush.Text.Tertiary}" />
+                            </TextBlock>
+                          </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                      </ComboBox>
+                      <Button Grid.Column="2" Command="{Binding NewMissionCommand}" ToolTip.Tip="Start a new, empty mission">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Plus}" />
+                          <TextBlock Text="New" />
+                        </StackPanel>
+                      </Button>
+                    </Grid>
+                    <StackPanel>
+                      <Label Classes="field" Content="Mission name" Target="{Binding #MissionNameBox}" />
+                      <TextBox x:Name="MissionNameBox" Text="{Binding Name}" />
+                    </StackPanel>
+                    <Grid ColumnDefinitions="*,8,*,8,Auto">
+                      <Border Grid.Column="0" Classes="tile">
+                        <StackPanel Spacing="2">
+                          <TextBlock Classes="overline" Text="ROUTE" />
+                          <TextBlock Classes="value" Text="{Binding Distance}" />
+                        </StackPanel>
+                      </Border>
+                      <Border Grid.Column="2" Classes="tile">
+                        <StackPanel Spacing="2">
+                          <TextBlock Classes="overline" Text="ITEMS" />
+                          <TextBlock Classes="value" Text="{Binding Items.Count}" />
+                        </StackPanel>
+                      </Border>
+                      <Border Grid.Column="4" Classes="badge success" IsVisible="{Binding IsFlyable}"
+                              ToolTip.Tip="The server checked this mission and found nothing that stops it from flying">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Check}" Width="12" Height="12" Foreground="{StaticResource Brush.Success}" />
+                          <TextBlock Text="FLYABLE" />
+                        </StackPanel>
+                      </Border>
+                    </Grid>
                   </StackPanel>
-                  <TextBlock Text="{Binding Status}" Foreground="#C9D1D9" FontSize="12" TextWrapping="Wrap" />
-                </StackPanel>
-              </Border>
-            </StackPanel>
-          </ScrollViewer>
-        </TabItem>
-      </TabControl>
-    </Grid>
-  </DockPanel>
+                </Border>
+
+                <Border Classes="section">
+                  <StackPanel Spacing="10">
+                    <TextBlock Classes="overline" Text="MISSION ITEMS" />
+                    <ToggleButton IsChecked="{Binding IsAddingWaypoints}" HorizontalAlignment="Stretch"
+                                  ToolTip.Tip="While on, each click on the map appends a waypoint">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ui:StrokeIcon Data="{StaticResource Icon.Waypoint}" />
+                        <TextBlock Text="Add waypoints by clicking the map" />
+                      </StackPanel>
+                    </ToggleButton>
+                    <Grid ColumnDefinitions="*,8,*,8,*">
+                      <Button Grid.Column="0" HorizontalAlignment="Stretch" Command="{Binding AddItemCommand}" CommandParameter="Takeoff">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Takeoff}" />
+                          <TextBlock Text="Takeoff" />
+                        </StackPanel>
+                      </Button>
+                      <Button Grid.Column="2" HorizontalAlignment="Stretch" Command="{Binding AddItemCommand}" CommandParameter="ReturnToLaunch">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Home}" />
+                          <TextBlock Text="RTL" />
+                        </StackPanel>
+                      </Button>
+                      <Button Grid.Column="4" HorizontalAlignment="Stretch" Command="{Binding AddItemCommand}" CommandParameter="Land">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Land}" />
+                          <TextBlock Text="Land" />
+                        </StackPanel>
+                      </Button>
+                    </Grid>
+
+                    <TextBlock Classes="caption tertiary" TextWrapping="Wrap" IsVisible="{Binding !HasItems}"
+                               Text="The mission is empty. Add a takeoff, then turn on “Add waypoints” and click the map." />
+
+                    <ListBox Classes="rows" ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}" MaxHeight="280"
+                             IsVisible="{Binding HasItems}" AutomationProperties.Name="Mission items">
+                      <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MissionItemViewModel">
+                          <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto">
+                            <Border Width="24" Height="20" CornerRadius="{StaticResource Radius.Small}" Margin="0,0,10,0"
+                                    Background="{StaticResource Brush.Accent.Subtle}" BorderBrush="{StaticResource Brush.Accent}" BorderThickness="1">
+                              <TextBlock Text="{Binding Number}" FontSize="{StaticResource FontSize.Overline}" FontWeight="SemiBold"
+                                         Foreground="{StaticResource Brush.Accent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Grid.Column="1" Text="{Binding Label}" FontWeight="Medium" VerticalAlignment="Center" />
+                            <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="0,4,0,0"
+                                        IsVisible="{Binding Issue, Converter={x:Static ObjectConverters.IsNotNull}}">
+                              <ui:StrokeIcon Data="{StaticResource Icon.Warning}" Width="13" Height="13" Foreground="{StaticResource Brush.Danger}" />
+                              <TextBlock Text="{Binding Issue}" Classes="caption" Foreground="{StaticResource Brush.Danger}" TextWrapping="Wrap" />
+                            </StackPanel>
+                          </Grid>
+                        </DataTemplate>
+                      </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" IsVisible="{Binding HasItems}">
+                      <Button Classes="ghost icon" Command="{Binding MoveUpCommand}" ToolTip.Tip="Move the selected item up" AutomationProperties.Name="Move up">
+                        <ui:StrokeIcon Data="{StaticResource Icon.ArrowUp}" />
+                      </Button>
+                      <Button Classes="ghost icon" Command="{Binding MoveDownCommand}" ToolTip.Tip="Move the selected item down" AutomationProperties.Name="Move down">
+                        <ui:StrokeIcon Data="{StaticResource Icon.ArrowDown}" />
+                      </Button>
+                      <Button Classes="ghost icon" Command="{Binding RemoveItemCommand}" ToolTip.Tip="Remove the selected item" AutomationProperties.Name="Remove item">
+                        <ui:StrokeIcon Data="{StaticResource Icon.Trash}" />
+                      </Button>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="section" IsVisible="{Binding SelectedItem, Converter={x:Static ObjectConverters.IsNotNull}}">
+                  <StackPanel DataContext="{Binding SelectedItem}" x:DataType="vm:MissionItemViewModel" Spacing="12">
+                    <TextBlock Classes="overline" Text="{Binding Number, StringFormat='EDIT ITEM {0}'}" />
+                    <StackPanel>
+                      <Label Classes="field" Content="Command" Target="{Binding #ItemCommandBox}" />
+                      <ComboBox x:Name="ItemCommandBox" ItemsSource="{x:Static vm:MissionItemViewModel.Commands}" SelectedItem="{Binding Command}"
+                                HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                    <Grid ColumnDefinitions="*,12,*" RowDefinitions="Auto,12,Auto,12,Auto">
+                      <StackPanel Grid.Row="0" Grid.Column="0">
+                        <Label Classes="field" Content="Latitude (°)" Target="{Binding #LatitudeBox}" />
+                        <TextBox x:Name="LatitudeBox" Classes="mono" Text="{Binding Latitude, Converter={x:Static vm:NullableDoubleConverter.Instance}}" />
+                      </StackPanel>
+                      <StackPanel Grid.Row="0" Grid.Column="2">
+                        <Label Classes="field" Content="Longitude (°)" Target="{Binding #LongitudeBox}" />
+                        <TextBox x:Name="LongitudeBox" Classes="mono" Text="{Binding Longitude, Converter={x:Static vm:NullableDoubleConverter.Instance}}" />
+                      </StackPanel>
+                      <StackPanel Grid.Row="2" Grid.Column="0">
+                        <Label Classes="field" Content="Altitude (m above home)" Target="{Binding #AltitudeBox}" />
+                        <TextBox x:Name="AltitudeBox" Classes="mono" Text="{Binding Altitude, Converter={x:Static vm:NullableDoubleConverter.Instance}}" />
+                      </StackPanel>
+                      <StackPanel Grid.Row="2" Grid.Column="2">
+                        <Label Classes="field" Content="Hold (s, loiter)" Target="{Binding #HoldBox}" />
+                        <TextBox x:Name="HoldBox" Classes="mono" Text="{Binding HoldSeconds, Converter={x:Static vm:NullableDoubleConverter.Instance}}" />
+                      </StackPanel>
+                      <StackPanel Grid.Row="4" Grid.Column="0">
+                        <Label Classes="field" Content="Speed (m/s)" Target="{Binding #SpeedBox}" />
+                        <TextBox x:Name="SpeedBox" Classes="mono" Watermark="keep current"
+                                 Text="{Binding Speed, Converter={x:Static vm:NullableDoubleConverter.Instance}}" />
+                      </StackPanel>
+                    </Grid>
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="section" BorderThickness="0">
+                  <StackPanel Spacing="12">
+                    <TextBlock Classes="overline" Text="CHECKS AND TRANSFER" />
+                    <Border Classes="alert warning" IsVisible="{Binding HasIssues}">
+                      <DockPanel>
+                        <ui:StrokeIcon Classes="lead" Data="{StaticResource Icon.Warning}" DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,1,10,0" />
+                        <ItemsControl ItemsSource="{Binding Issues}">
+                          <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                              <TextBlock Text="{Binding}" Margin="0,0,0,4" />
+                            </DataTemplate>
+                          </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                      </DockPanel>
+                    </Border>
+                    <Grid ColumnDefinitions="*,8,*" RowDefinitions="Auto,8,Auto">
+                      <Button Grid.Row="0" Grid.Column="0" HorizontalAlignment="Stretch" Command="{Binding SaveCommand}"
+                              ToolTip.Tip="Save the mission on the server (it is checked on save)">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Save}" />
+                          <TextBlock Text="Save" />
+                        </StackPanel>
+                      </Button>
+                      <Button Grid.Row="0" Grid.Column="2" Classes="primary" HorizontalAlignment="Stretch" Command="{Binding UploadCommand}"
+                              ToolTip.Tip="Send the mission to the selected vehicle">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Upload}" />
+                          <TextBlock Text="Upload to vehicle" />
+                        </StackPanel>
+                      </Button>
+                      <Button Grid.Row="2" Grid.Column="0" HorizontalAlignment="Stretch" Command="{Binding DownloadFromVehicleCommand}"
+                              ToolTip.Tip="Read the mission stored on the selected vehicle">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Download}" />
+                          <TextBlock Text="Read from vehicle" />
+                        </StackPanel>
+                      </Button>
+                      <Button Grid.Row="2" Grid.Column="2" HorizontalAlignment="Stretch" Command="{Binding ArchiveCommand}" IsEnabled="{Binding IsSaved}"
+                              ToolTip.Tip="Archive this saved mission (it leaves the list)">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <ui:StrokeIcon Data="{StaticResource Icon.Archive}" />
+                          <TextBlock Text="Archive" />
+                        </StackPanel>
+                      </Button>
+                    </Grid>
+                    <Border Classes="alert" IsVisible="{Binding Status, Converter={x:Static ObjectConverters.IsNotNull}}">
+                      <DockPanel>
+                        <ui:StrokeIcon Classes="lead" Data="{StaticResource Icon.Info}" DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,1,10,0" />
+                        <TextBlock Text="{Binding Status}" />
+                      </DockPanel>
+                    </Border>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+          </Panel>
+        </Border>
+      </Grid>
+    </DockPanel>
+  </Grid>
 </Window>

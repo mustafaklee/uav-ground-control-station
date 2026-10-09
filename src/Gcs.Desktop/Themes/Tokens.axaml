@@ -1,0 +1,101 @@
+<!--
+  Design tokens: the only place colours, type sizes, radii and spacing are defined (ADR-020).
+  Views use the brushes by name ({StaticResource Brush.Text.Secondary}); no view contains a hex colour.
+
+  Palette: deep navy / anthracite surfaces, off-white text, one warm accent (amber) for primary actions and one cool
+  accent (blue) for selection and information. Status colours are distinct in hue AND always come with a word or an
+  icon, so nothing is told by colour alone. Contrast against Surface.1: primary text 14:1, secondary 8:1, tertiary 4.7:1.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Surfaces, darkest first -->
+  <Color x:Key="Color.Background">#0A0F16</Color>
+  <Color x:Key="Color.Surface.0">#0E141D</Color>
+  <Color x:Key="Color.Surface.1">#131B26</Color>
+  <Color x:Key="Color.Surface.2">#19232F</Color>
+  <Color x:Key="Color.Surface.3">#222E3C</Color>
+  <Color x:Key="Color.Overlay">#E60E141D</Color>
+  <Color x:Key="Color.Border.Subtle">#1E2935</Color>
+  <Color x:Key="Color.Border">#2A3747</Color>
+  <Color x:Key="Color.Border.Strong">#3A4B5F</Color>
+
+  <!-- Text -->
+  <Color x:Key="Color.Text.Primary">#E6EAF0</Color>
+  <Color x:Key="Color.Text.Secondary">#A3AFBF</Color>
+  <Color x:Key="Color.Text.Tertiary">#7A8798</Color>
+  <Color x:Key="Color.Text.Disabled">#4F5B6A</Color>
+
+  <!-- Accents -->
+  <Color x:Key="Color.Accent">#F29C38</Color>
+  <Color x:Key="Color.Accent.Hover">#F7AE55</Color>
+  <Color x:Key="Color.Accent.Pressed">#DB8423</Color>
+  <Color x:Key="Color.Accent.Foreground">#1B1206</Color>
+  <Color x:Key="Color.Accent.Subtle">#2A2015</Color>
+  <Color x:Key="Color.Info">#5BA8E5</Color>
+  <Color x:Key="Color.Info.Subtle">#14283C</Color>
+
+  <!-- Status -->
+  <Color x:Key="Color.Success">#3DBE7E</Color>
+  <Color x:Key="Color.Success.Subtle">#10291E</Color>
+  <Color x:Key="Color.Warning">#E9C341</Color>
+  <Color x:Key="Color.Warning.Subtle">#2A2410</Color>
+  <Color x:Key="Color.Danger">#F0564E</Color>
+  <Color x:Key="Color.Danger.Hover">#F46F68</Color>
+  <Color x:Key="Color.Danger.Pressed">#D8433C</Color>
+  <Color x:Key="Color.Danger.Subtle">#2E1517</Color>
+  <Color x:Key="Color.Neutral">#7C8796</Color>
+  <Color x:Key="Color.Neutral.Subtle">#1C2531</Color>
+
+  <SolidColorBrush x:Key="Brush.Background" Color="{StaticResource Color.Background}" />
+  <SolidColorBrush x:Key="Brush.Surface.0" Color="{StaticResource Color.Surface.0}" />
+  <SolidColorBrush x:Key="Brush.Surface.1" Color="{StaticResource Color.Surface.1}" />
+  <SolidColorBrush x:Key="Brush.Surface.2" Color="{StaticResource Color.Surface.2}" />
+  <SolidColorBrush x:Key="Brush.Surface.3" Color="{StaticResource Color.Surface.3}" />
+  <SolidColorBrush x:Key="Brush.Overlay" Color="{StaticResource Color.Overlay}" />
+  <SolidColorBrush x:Key="Brush.Border.Subtle" Color="{StaticResource Color.Border.Subtle}" />
+  <SolidColorBrush x:Key="Brush.Border" Color="{StaticResource Color.Border}" />
+  <SolidColorBrush x:Key="Brush.Border.Strong" Color="{StaticResource Color.Border.Strong}" />
+  <SolidColorBrush x:Key="Brush.Text.Primary" Color="{StaticResource Color.Text.Primary}" />
+  <SolidColorBrush x:Key="Brush.Text.Secondary" Color="{StaticResource Color.Text.Secondary}" />
+  <SolidColorBrush x:Key="Brush.Text.Tertiary" Color="{StaticResource Color.Text.Tertiary}" />
+  <SolidColorBrush x:Key="Brush.Text.Disabled" Color="{StaticResource Color.Text.Disabled}" />
+  <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}" />
+  <SolidColorBrush x:Key="Brush.Accent.Hover" Color="{StaticResource Color.Accent.Hover}" />
+  <SolidColorBrush x:Key="Brush.Accent.Pressed" Color="{StaticResource Color.Accent.Pressed}" />
+  <SolidColorBrush x:Key="Brush.Accent.Foreground" Color="{StaticResource Color.Accent.Foreground}" />
+  <SolidColorBrush x:Key="Brush.Accent.Subtle" Color="{StaticResource Color.Accent.Subtle}" />
+  <SolidColorBrush x:Key="Brush.Info" Color="{StaticResource Color.Info}" />
+  <SolidColorBrush x:Key="Brush.Info.Subtle" Color="{StaticResource Color.Info.Subtle}" />
+  <SolidColorBrush x:Key="Brush.Success" Color="{StaticResource Color.Success}" />
+  <SolidColorBrush x:Key="Brush.Success.Subtle" Color="{StaticResource Color.Success.Subtle}" />
+  <SolidColorBrush x:Key="Brush.Warning" Color="{StaticResource Color.Warning}" />
+  <SolidColorBrush x:Key="Brush.Warning.Subtle" Color="{StaticResource Color.Warning.Subtle}" />
+  <SolidColorBrush x:Key="Brush.Danger" Color="{StaticResource Color.Danger}" />
+  <SolidColorBrush x:Key="Brush.Danger.Hover" Color="{StaticResource Color.Danger.Hover}" />
+  <SolidColorBrush x:Key="Brush.Danger.Pressed" Color="{StaticResource Color.Danger.Pressed}" />
+  <SolidColorBrush x:Key="Brush.Danger.Subtle" Color="{StaticResource Color.Danger.Subtle}" />
+  <SolidColorBrush x:Key="Brush.Neutral" Color="{StaticResource Color.Neutral}" />
+  <SolidColorBrush x:Key="Brush.Neutral.Subtle" Color="{StaticResource Color.Neutral.Subtle}" />
+
+  <!-- Typography: Inter for text, a monospaced face for numbers that change (they must not jitter). -->
+  <FontFamily x:Key="Font.Mono">Cascadia Mono, Consolas, Menlo, DejaVu Sans Mono, monospace</FontFamily>
+  <x:Double x:Key="FontSize.Overline">11</x:Double>
+  <x:Double x:Key="FontSize.Caption">12</x:Double>
+  <x:Double x:Key="FontSize.Body">13</x:Double>
+  <x:Double x:Key="FontSize.Subtitle">15</x:Double>
+  <x:Double x:Key="FontSize.Title">18</x:Double>
+  <x:Double x:Key="FontSize.Value">17</x:Double>
+  <x:Double x:Key="FontSize.Headline">24</x:Double>
+  <x:Double x:Key="FontSize.Display">30</x:Double>
+
+  <!-- Shape and size: 4 px grid; controls are 32 px high (36 px for the sign-in form). -->
+  <CornerRadius x:Key="Radius.Small">3</CornerRadius>
+  <CornerRadius x:Key="Radius.Control">4</CornerRadius>
+  <CornerRadius x:Key="Radius.Panel">6</CornerRadius>
+  <x:Double x:Key="Size.Control">32</x:Double>
+  <x:Double x:Key="Size.Control.Large">40</x:Double>
+  <x:Double x:Key="Size.TopBar">56</x:Double>
+  <Thickness x:Key="Space.Section">16</Thickness>
+  <Thickness x:Key="Space.ControlPadding">12,0</Thickness>
+</ResourceDictionary>

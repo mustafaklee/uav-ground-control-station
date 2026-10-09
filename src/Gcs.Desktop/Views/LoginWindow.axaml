@@ -1,24 +1,159 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:Gcs.Desktop.ViewModels"
+        xmlns:ui="using:Gcs.Desktop.Controls"
         x:Class="Gcs.Desktop.Views.LoginWindow"
         x:DataType="vm:LoginViewModel"
-        Title="UAV GCS - Sign in"
-        Width="380" SizeToContent="Height" CanResize="False"
-        WindowStartupLocation="CenterScreen"
-        Background="#0F1720">
-  <StackPanel Margin="28" Spacing="10">
-    <TextBlock Text="UAV GCS" FontWeight="Bold" FontSize="22" Foreground="#E6EDF3" />
-    <TextBlock Text="{Binding ServerAddress}" Foreground="#8A9AAB" FontSize="12" />
+        Title="UAV GCS · Sign in"
+        Width="1120" Height="700" MinWidth="900" MinHeight="620"
+        WindowStartupLocation="CenterScreen">
 
-    <TextBlock Text="Username" Foreground="#8A9AAB" FontSize="12" Margin="0,10,0,0" />
-    <TextBox x:Name="UsernameBox" Text="{Binding Username}" />
-    <TextBlock Text="Password" Foreground="#8A9AAB" FontSize="12" />
-    <TextBox Text="{Binding Password}" PasswordChar="•" RevealPassword="False" />
+  <!--
+    Two panes (ADR-020): a quiet brand pane on the left, a focused sign-in form on the right. The authentication flow
+    is unchanged: the form only collects the two fields and shows what the server answers.
+  -->
+  <Grid ColumnDefinitions="11*,9*">
 
-    <Button Content="Sign in" Command="{Binding SignInCommand}" IsDefault="True" Classes="accent"
-            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Margin="0,8,0,0" />
-    <TextBlock Text="{Binding ErrorMessage}" Foreground="#E74C3C" TextWrapping="Wrap"
-               IsVisible="{Binding ErrorMessage, Converter={x:Static ObjectConverters.IsNotNull}}" />
-  </StackPanel>
+    <!-- Brand pane -->
+    <Border Grid.Column="0" BorderBrush="{StaticResource Brush.Border.Subtle}" BorderThickness="0,0,1,0" ClipToBounds="True">
+      <Border.Background>
+        <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+          <GradientStop Offset="0" Color="{StaticResource Color.Surface.1}" />
+          <GradientStop Offset="1" Color="{StaticResource Color.Background}" />
+        </LinearGradientBrush>
+      </Border.Background>
+      <Panel>
+        <!-- Range rings and a crosshair, the language of a radar or tactical display, kept faint behind the text -->
+        <Viewbox Width="760" Height="760" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,-260,-260"
+                 Opacity="0.5" IsHitTestVisible="False">
+          <Canvas Width="400" Height="400">
+            <Ellipse Canvas.Left="0" Canvas.Top="0" Width="400" Height="400" Stroke="{StaticResource Brush.Border}" StrokeThickness="1" />
+            <Ellipse Canvas.Left="50" Canvas.Top="50" Width="300" Height="300" Stroke="{StaticResource Brush.Border}" StrokeThickness="1" />
+            <Ellipse Canvas.Left="100" Canvas.Top="100" Width="200" Height="200" Stroke="{StaticResource Brush.Border}" StrokeThickness="1" />
+            <Ellipse Canvas.Left="150" Canvas.Top="150" Width="100" Height="100" Stroke="{StaticResource Brush.Border.Strong}" StrokeThickness="1" />
+            <Line StartPoint="200,0" EndPoint="200,400" Stroke="{StaticResource Brush.Border}" StrokeThickness="1" StrokeDashArray="2,4" />
+            <Line StartPoint="0,200" EndPoint="400,200" Stroke="{StaticResource Brush.Border}" StrokeThickness="1" StrokeDashArray="2,4" />
+            <Path Data="M200 200 L200 0 A200 200 0 0 1 341 59 Z" Opacity="0.35">
+              <Path.Fill>
+                <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,0%">
+                  <GradientStop Offset="0" Color="Transparent" />
+                  <GradientStop Offset="1" Color="{StaticResource Color.Info.Subtle}" />
+                </LinearGradientBrush>
+              </Path.Fill>
+            </Path>
+            <Ellipse Canvas.Left="268" Canvas.Top="118" Width="6" Height="6" Fill="{StaticResource Brush.Accent}" />
+            <Ellipse Canvas.Left="128" Canvas.Top="246" Width="5" Height="5" Fill="{StaticResource Brush.Info}" />
+          </Canvas>
+        </Viewbox>
+
+        <DockPanel Margin="56,48">
+          <!-- Product mark: the product's own name, no invented organisation -->
+          <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="12">
+            <ui:StrokeIcon Data="{StaticResource Icon.Brand}" Width="34" Height="34" Foreground="{StaticResource Brush.Accent}" StrokeThickness="1.6" />
+            <StackPanel VerticalAlignment="Center" Spacing="1">
+              <TextBlock Text="UAV GCS" FontSize="17" FontWeight="Bold" />
+              <TextBlock Text="Ground Control Station" Classes="caption" />
+            </StackPanel>
+          </StackPanel>
+
+          <StackPanel DockPanel.Dock="Bottom" Spacing="6">
+            <Rectangle Classes="divider" Margin="0,0,0,10" Width="420" HorizontalAlignment="Left" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <ui:StrokeIcon Data="{StaticResource Icon.Shield}" Width="14" Height="14" Foreground="{StaticResource Brush.Text.Tertiary}" />
+              <TextBlock Classes="caption tertiary" Text="Authorized operators only. Every vehicle command is recorded in the audit log." />
+            </StackPanel>
+            <TextBlock Classes="caption tertiary" Text="{Binding Version, StringFormat='Version {0}'}" />
+          </StackPanel>
+
+          <StackPanel VerticalAlignment="Center" Spacing="20" MaxWidth="480" HorizontalAlignment="Left">
+            <TextBlock Text="OPERATIONS CONSOLE" Classes="overline" Foreground="{StaticResource Brush.Accent}" />
+            <TextBlock Classes="display" TextWrapping="Wrap" LineHeight="38"
+                       Text="Command and control for unmanned aircraft" />
+            <TextBlock Classes="muted" TextWrapping="Wrap" FontSize="14" LineHeight="21"
+                       Text="Live telemetry, mission planning and audited vehicle command for PX4 and ArduPilot vehicles over MAVLink." />
+            <StackPanel Spacing="12" Margin="0,8,0,0">
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <ui:StrokeIcon Data="{StaticResource Icon.Signal}" Foreground="{StaticResource Brush.Info}" />
+                <TextBlock Text="Live telemetry and link quality per vehicle" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <ui:StrokeIcon Data="{StaticResource Icon.Mission}" Foreground="{StaticResource Brush.Info}" />
+                <TextBlock Text="Mission planning, validation and upload" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="12">
+                <ui:StrokeIcon Data="{StaticResource Icon.Lock}" Foreground="{StaticResource Brush.Info}" />
+                <TextBlock Text="Exclusive control, confirmations and an audit trail" />
+              </StackPanel>
+            </StackPanel>
+          </StackPanel>
+        </DockPanel>
+      </Panel>
+    </Border>
+
+    <!-- Sign-in form -->
+    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+      <StackPanel Width="360" VerticalAlignment="Center" Margin="0,40">
+        <TextBlock Text="SECURE SIGN-IN" Classes="overline" Margin="0,0,0,8" />
+        <TextBlock Text="Sign in" FontSize="{StaticResource FontSize.Headline}" FontWeight="SemiBold" />
+        <TextBlock Text="Use your operator account to continue." Classes="muted" Margin="0,6,0,24" />
+
+        <!-- What the server said: wrong credentials, locked out, too many requests, unreachable -->
+        <Border Classes="alert danger" Margin="0,0,0,20"
+                IsVisible="{Binding ErrorMessage, Converter={x:Static ObjectConverters.IsNotNull}}">
+          <DockPanel>
+            <ui:StrokeIcon Classes="lead" Data="{StaticResource Icon.Error}" DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,1,10,0" />
+            <TextBlock Text="{Binding ErrorMessage}" />
+          </DockPanel>
+        </Border>
+
+        <Label Classes="field" Content="Username" Target="{Binding #UsernameBox}" />
+        <TextBox x:Name="UsernameBox" Classes="large" Text="{Binding Username}" Watermark="e.g. operator01"
+                 Classes.invalid="{Binding UsernameError, Converter={x:Static ObjectConverters.IsNotNull}}"
+                 AutomationProperties.Name="Username" />
+        <TextBlock Text="{Binding UsernameError}" Classes="caption" Foreground="{StaticResource Brush.Danger}" Margin="0,6,0,0"
+                   IsVisible="{Binding UsernameError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+        <Label Classes="field" Content="Password" Target="{Binding #PasswordBox}" Margin="0,18,0,6" />
+        <TextBox x:Name="PasswordBox" Classes="large" Text="{Binding Password}" PasswordChar="•"
+                 RevealPassword="{Binding IsPasswordVisible}"
+                 Classes.invalid="{Binding PasswordError, Converter={x:Static ObjectConverters.IsNotNull}}"
+                 AutomationProperties.Name="Password">
+          <TextBox.InnerRightContent>
+            <ToggleButton Classes="ghost icon" IsChecked="{Binding IsPasswordVisible}" Margin="0,0,4,0" Width="30" Height="30"
+                          Focusable="True" AutomationProperties.Name="Show password"
+                          ToolTip.Tip="Show or hide the password">
+              <Panel>
+                <ui:StrokeIcon Data="{StaticResource Icon.Eye}" IsVisible="{Binding !IsPasswordVisible}" />
+                <ui:StrokeIcon Data="{StaticResource Icon.EyeOff}" IsVisible="{Binding IsPasswordVisible}" />
+              </Panel>
+            </ToggleButton>
+          </TextBox.InnerRightContent>
+        </TextBox>
+        <TextBlock Text="{Binding PasswordError}" Classes="caption" Foreground="{StaticResource Brush.Danger}" Margin="0,6,0,0"
+                   IsVisible="{Binding PasswordError, Converter={x:Static ObjectConverters.IsNotNull}}" />
+
+        <Button Classes="primary large" Command="{Binding SignInCommand}" IsDefault="True"
+                HorizontalAlignment="Stretch" Margin="0,24,0,0" AutomationProperties.Name="Sign in">
+          <Panel>
+            <TextBlock Text="Sign in" IsVisible="{Binding !SignInCommand.IsRunning}" />
+            <TextBlock Text="Signing in…" IsVisible="{Binding SignInCommand.IsRunning}" />
+          </Panel>
+        </Button>
+        <ProgressBar Classes="busy" Margin="0,4,0,0" IsVisible="{Binding SignInCommand.IsRunning}" />
+
+        <Rectangle Classes="divider" Margin="0,28,0,16" />
+
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto" >
+          <ui:StrokeIcon Data="{StaticResource Icon.Server}" Width="14" Height="14" Foreground="{StaticResource Brush.Text.Tertiary}"
+                         Margin="0,0,8,0" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Classes="caption" VerticalAlignment="Center">
+            <Run Text="Server" Foreground="{StaticResource Brush.Text.Tertiary}" />
+            <Run Text="{Binding ServerAddress, Mode=OneWay}" FontFamily="{StaticResource Font.Mono}" />
+          </TextBlock>
+          <TextBlock Grid.Row="1" Grid.Column="1" Classes="caption tertiary" TextWrapping="Wrap" Margin="0,10,0,0"
+                     Text="Forgot your password? Ask an administrator to reset it. Five failed attempts lock the account for five minutes." />
+        </Grid>
+      </StackPanel>
+    </ScrollViewer>
+  </Grid>
 </Window>

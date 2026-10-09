@@ -1,37 +1,44 @@
-# Handoff (2026-10-09)
+# Handoff (2026-10-09, project complete)
 
-Where the work stopped and what comes next. Update or remove this file when work resumes.
+All twelve phases of the plan are on `main`. There is no work in progress and no open pull request except this
+documentation one.
 
-## State of the branches
+## What exists
 
-| Branch | PR | State |
-|---|---|---|
-| `main` | | Phases 1–11 (#10 and #11 merged 2026-10-08) |
-| `feature/phase-12-advanced-networking` | → `main` | Rebased onto `main`, pushed, PR open |
+* Backend (`src/Gcs.Api` and its layers), desktop client (`src/Gcs.Desktop`), standalone simulator (`src/Gcs.Simulation`).
+* Local stack: `docker-compose.yml` (PostgreSQL, RabbitMQ, Redis, Aspire dashboard, migrator, API, simulator; profile
+  `sitl` adds PX4 SITL).
+* Server install: `deploy/` (Ubuntu 24.04, Nginx, UFW, TLS, backups), verified by `deploy/test/verify-install.sh`.
+* 19 ADRs, 12 phase guides plus `docs/learning/genel-bakis.md` (Turkish overview).
 
-Stale branches that can be deleted on GitHub: `feature/phase-9-observability`, `feature/phase-9-observability-main`,
-`feature/phase-10-px4-sitl`, `feature/phase-11-deployment`.
+## Verified on `main` (4a9aa6a, 2026-10-09)
 
-## Phase 12 (Advanced networking): done
+* Unit 379, architecture 11, integration 131 + 1 opt-in: all green in Release.
+* `GCS_PX4_SITL=1` flight test (takeoff → mission → RTL with a real PX4): green.
+* CI on every PR: Build and test, Docker smoke test, PX4 SITL flight, Deployment config.
 
-* ADR-019. MAVLink RADIO_STATUS (109) and TIMESYNC (111), golden-tested against pymavlink.
-* `LinkQualityMonitor` (10 s window, EWMA round trip, radio), `LinkQualityRules` (Good/Fair/Poor/Lost) in the domain.
-* `UdpEndpointHub`: several vehicles on one UDP port, routed by system id; unregistered systems are listed.
-* `GET /api/v1/network/topology`, `IRadioNetworkProvider` (first implementation: RADIO_STATUS).
-* `LinkQualityUpdated` pushed every 2 s; gauges `gcs.link.rtt|packet_loss|message_rate|radio.rssi`; desktop quality line.
-* The simulator answers TIMESYNC and can simulate a SiK radio (`Simulator__SimulateRadio`, on in dev compose).
-* Real PX4 answers TIMESYNC: the SITL flight test checks the round trip and the Good grade.
-* Docs: networking.md, mavlink.md, observability.md, README, `docs/learning/phase-12-rehberi.md`.
-* Tests: 379 unit, 11 architecture, 131 integration (+1 opt-in SITL, which passed locally).
+## How to run
 
-## Next steps
+* Locally: README → Getting started (`docker compose up -d --build --wait`, then `dotnet run --project src/Gcs.Desktop`).
+* On a server: `docs/deployment.md` (`sudo deploy/install.sh --domain … --tls letsencrypt|internal`).
 
-1. Drive the Phase 12 PR to green CI; Mustafa reviews and merges.
-2. The twelve phases of the brief are complete. Anything beyond them waits for Mustafa's decision.
+## Known limitations
+
+See README → Known limitations: no serial transport, unsigned MAVLink, single API instance, no instant token
+revocation, online map tiles, untuned link-quality thresholds, Let's Encrypt path not exercised end to end.
+
+## Possible next steps (need Mustafa's decision)
+
+1. Field readiness: offline map tiles and a serial transport for USB telemetry radios.
+2. MAVLink 2 message signing, and MAVLink accepted only from the vehicles' network (`DOCKER-USER` rules).
+3. Container images published to GHCR from CI, so servers pull instead of build; a staging install in CI.
+4. ArduPilot SITL (TCP 5760) flight test next to PX4, and a multi-vehicle SITL scenario.
+5. A second API instance: shared leases and rate limits (Redis), vehicle ownership per instance.
 
 ## Local machine notes
 
-* `.env` (git-ignored) holds `JWT_SIGNING_KEY` and `GCS_ADMIN_PASSWORD`. The same values are in `dotnet user-secrets`
-  for `src/Gcs.Api`.
-* The dev stack is not running. Start it with `docker compose --profile sitl up -d --build --wait`.
-* `deploy/test/verify-install.sh` tests the server install in a throwaway Ubuntu container (about 15 minutes).
+* `.env` (git-ignored) holds `JWT_SIGNING_KEY` and `GCS_ADMIN_PASSWORD`; the same values are in `dotnet user-secrets`
+  for `src/Gcs.Api`. `claude_prompt.txt` is the original brief and stays out of git.
+* No Docker stack is running. Volumes are kept.
+* Merged branches that can be deleted on GitHub: `feature/phase-9-observability`, `feature/phase-9-observability-main`,
+  `feature/phase-10-px4-sitl`, `feature/phase-11-deployment`, `feature/phase-12-advanced-networking`.

@@ -6,37 +6,11 @@ A modular, testable ground control station (GCS) for managing multiple UAVs over
 ASP.NET Core, PostgreSQL, RabbitMQ, SignalR and Avalonia UI. It is engineered like a defence-industry product:
 reliability, safety, security and observability come before features.
 
-> **Status: Phase 9, observability.** OpenTelemetry traces and metrics, with logs correlated by trace id. One trace
-> follows an operator action from the HTTP request through PostgreSQL to the MAVLink exchange. The trace context
-> travels through the outbox into RabbitMQ message headers. `/health/details` reports vehicle links, the outbox backlog
-> and history writes. `docker compose` includes the Aspire dashboard at http://localhost:18888. See
-> [docs/observability.md](docs/observability.md).
->
-> Phase 8, security: Users sign in (JWT access tokens for 15 minutes, rotating refresh tokens with reuse
-> detection). Four roles map to permission policies, and a test checks every endpoint against every role. Passwords are
-> hashed with PBKDF2 and accounts lock after repeated failures. The API is rate limited and sends defensive headers, and
-> secrets come only from user-secrets or `.env`. The desktop client has a sign-in window. See
-> [docs/security.md](docs/security.md).
->
-> Phase 7, command system: Operators take control of a vehicle (one operator per vehicle, expiring command
-> lease) and send ARM, DISARM, TAKEOFF, LAND, RTL and SET_MODE. Each command waits for the vehicle's COMMAND_ACK with a
-> timeout and bounded retries, a duplicate in flight is refused, critical commands need confirmation, and every
-> attempt is written to an append-only audit log in PostgreSQL. See [docs/commands.md](docs/commands.md).
->
-> Phase 6, mission planner: Operators plan missions on the map (takeoff, waypoints, loiter, RTL, land), the
-> backend stores and validates them, and the MAVLink mission protocol uploads them to a vehicle and reads them back.
-> Vehicle links are restored automatically after an API restart.
->
-> Phase 5, desktop GCS: The Avalonia operator client shows the fleet, a live map with the vehicle's heading
-> and track, telemetry and battery panels and a status bar, fed by REST and SignalR.
->
-> Phase 4, telemetry: Live telemetry is pushed to clients over SignalR (throttled to 5 Hz per vehicle),
-> sampled into PostgreSQL as history, and link events reach RabbitMQ through the outbox.
->
-> Phase 3, MAVLink: The GCS talks MAVLink 2 to vehicles over UDP/TCP or to a built-in simulator: it tracks
-> link health with heartbeats, reconnects with bounded exponential backoff and decodes live telemetry (position,
-> attitude, speed, battery, GPS, arm state, flight mode). Vehicles are managed through a versioned REST API backed by
-> PostgreSQL. SignalR push and the desktop UI arrive in the phases listed in the [roadmap](#roadmap).
+> **Status: all twelve phases of the plan are complete** (October 2026). The backend, the desktop client, the
+> simulator, a real PX4 flight test, a scripted server install and link-quality monitoring are on `main`, covered by
+> 379 unit, 11 architecture and 132 integration tests (one of them flies a real PX4 in SITL). What each phase added is
+> in the [roadmap](#roadmap) and, in Turkish, in [docs/learning/genel-bakis.md](docs/learning/genel-bakis.md). What
+> is not done yet is listed under [known limitations](#known-limitations).
 
 ![GCS desktop client, Flight tab: control panel with command lease, command buttons, last answer and audited command history](docs/images/gcs-desktop-phase7-control.png)
 
@@ -45,9 +19,11 @@ Live telemetry before the control panel existed: [docs/images/gcs-desktop-phase5
 
 ## Project overview
 
-The GCS lets operators register vehicles, connect to them over UDP, TCP or serial MAVLink links, watch live telemetry
+The GCS lets operators register vehicles, connect to them over UDP or TCP MAVLink links (several vehicles may share one UDP port), watch live telemetry
 on a map, plan and upload missions, and send commands (arm, takeoff, mode change, RTL, land) with role-based
-authorization and a full audit trail. It runs without hardware against a built-in simulator or PX4 SITL.
+authorization and a full audit trail. Link quality (loss, round trip, radio signal) is graded per vehicle and the network
+topology is available through the API. It runs without hardware against a built-in simulator or PX4 SITL, and installs
+on an Ubuntu server with one command.
 
 ## Architecture
 
@@ -175,7 +151,7 @@ curl http://localhost:8080/health/ready
 | RabbitMQ management | http://localhost:15672 |
 | Observability dashboard (traces, metrics, logs) | http://localhost:18888 |
 | PostgreSQL | localhost:5432 |
-| Redis (unused until Phase 4) | localhost:6379 |
+| Redis (in compose, not used by the API; see ADR-011) | localhost:6379 |
 | MAVLink (UDP, GCS listens) | localhost:14550/udp |
 | MAVLink from PX4 SITL (profile `sitl`) | localhost:14560/udp |
 
@@ -298,6 +274,19 @@ Phase 8: JWT sign-in with rotating refresh tokens, permission-based authorizatio
 an append-only command audit log. Since Phase 11: TLS 1.2/1.3 at Nginx with HSTS, forwarded headers trusted only from
 the proxy network, a firewall with two open ports and databases on an internal network. Details:
 [docs/security.md](docs/security.md).
+
+## Known limitations
+
+| Area | Limitation | Where it is discussed |
+|---|---|---|
+| Links | No serial transport yet, so USB telemetry radios need a UDP/TCP bridge (e.g. mavlink-router) | ADR-019 |
+| Links | MAVLink is neither signed nor encrypted; MAVLink is accepted from any address that reaches the UDP port | ADR-018, ADR-019 |
+| Scale | One API instance: links, command leases and rate-limit counters live in memory | ADR-003, ADR-015 |
+| Security | Access tokens cannot be revoked instantly (they expire within 15 minutes) | ADR-015 |
+| Map | Online OpenStreetMap tiles; offline tiles are needed before field use | ADR-012 |
+| Network | Link-quality thresholds are a starting point, not tuned with field data; SNMP and NetFlow not integrated | ADR-019 |
+| Deployment | Images are built on the server; Let's Encrypt path not tested end to end (needs a public name); backups stay on the host unless copied off | ADR-018 |
+| Simulation | PX4 SITL only (no ArduPilot SITL test, no Gazebo/camera) | ADR-017 |
 
 ## Roadmap
 

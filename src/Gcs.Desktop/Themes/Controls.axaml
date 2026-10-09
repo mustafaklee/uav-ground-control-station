@@ -415,6 +415,11 @@
     <Setter Property="IsVisible" Value="False" />
   </Style>
 
+  <!-- Values that are no longer live (backend connection down) are dimmed, not hidden -->
+  <Style Selector="Border.stale">
+    <Setter Property="Opacity" Value="0.5" />
+  </Style>
+
   <Style Selector="ProgressBar.busy">
     <Setter Property="IsIndeterminate" Value="True" />
     <Setter Property="MinHeight" Value="2" />

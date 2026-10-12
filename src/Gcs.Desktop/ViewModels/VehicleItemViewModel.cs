@@ -14,7 +14,7 @@ public sealed partial class VehicleItemViewModel(VehicleResponse vehicle) : Obse
     public string Description { get; } = $"{vehicle.Autopilot} {vehicle.Type} · sysid {vehicle.MavlinkSystemId} · {vehicle.Connection.Transport}";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsConnected), nameof(CanConnect), nameof(CanDisconnect))]
+    [NotifyPropertyChangedFor(nameof(IsConnected), nameof(CanConnect), nameof(CanDisconnect), nameof(IsTransitioning), nameof(IsFaulted))]
     private string _linkState = "Disconnected";
 
     [ObservableProperty]
@@ -28,7 +28,16 @@ public sealed partial class VehicleItemViewModel(VehicleResponse vehicle) : Obse
     [ObservableProperty]
     private string _linkSummary = string.Empty;
 
+    /// <summary>The live connection to the backend is down: the values shown are the last ones received.</summary>
+    [ObservableProperty]
+    private bool _isStale;
+
     public bool IsConnected => LinkState == "Connected";
+
+    /// <summary>Connecting or reconnecting: shown in the warning colour.</summary>
+    public bool IsTransitioning => LinkState is "Connecting" or "Reconnecting";
+
+    public bool IsFaulted => LinkState == "Faulted";
 
     /// <summary>Connecting is possible when there is no active link (never connected, disconnected or faulted).</summary>
     public bool CanConnect => LinkState is "Disconnected" or "Faulted";
@@ -41,8 +50,13 @@ public sealed partial class VehicleItemViewModel(VehicleResponse vehicle) : Obse
         LinkState = status.State;
         FaultReason = status.FaultReason;
         LinkGrade = status.Quality.Grade;
-        LinkSummary = status.State == "Connected" ? Summarize(status.Quality) : string.Empty;
+        LinkSummary = status.State != "Connected" ? string.Empty
+            : status.Quality.LastFrameAt is null ? WaitingForData
+            : Summarize(status.Quality);
     }
+
+    /// <summary>Connected, but no frame counted yet: "Lost · 0 msg/s" would contradict the state next to it.</summary>
+    public const string WaitingForData = "Waiting for data";
 
     internal static string Summarize(LinkQualityDto quality)
     {

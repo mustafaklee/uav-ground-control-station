@@ -9,7 +9,11 @@ documentation one.
 * Local stack: `docker-compose.yml` (PostgreSQL, RabbitMQ, Redis, Aspire dashboard, migrator, API, simulator; profile
   `sitl` adds PX4 SITL).
 * Server install: `deploy/` (Ubuntu 24.04, Nginx, UFW, TLS, backups), verified by `deploy/test/verify-install.sh`.
-* 19 ADRs, 12 phase guides plus `docs/learning/genel-bakis.md` (Turkish overview).
+* 20 ADRs, 12 phase guides plus `docs/learning/genel-bakis.md` (Turkish overview) and
+  `docs/learning/arayuz-yenileme-rehberi.md` (desktop redesign).
+* Desktop UI redesign (ADR-020): design tokens and styles in `src/Gcs.Desktop/Themes/`, navigation rail, two-pane
+  sign-in. Screens are checked by rendering the real windows headless against the running stack
+  (Avalonia.Headless + Skia, `window.CaptureRenderedFrame()`); see the learning note.
 
 ## Verified on `main` (4a9aa6a, 2026-10-09)
 
@@ -26,6 +30,10 @@ documentation one.
 
 See README → Known limitations: no serial transport, unsigned MAVLink, single API instance, no instant token
 revocation, online map tiles, untuned link-quality thresholds, Let's Encrypt path not exercised end to end.
+
+Observed during the redesign, not fixed: right after the API container restarts, SIM-01's link sometimes reports
+33-50 % recent loss (grade Poor) at a normal message rate while nothing is lost, and it comes and goes. It looks like
+sequence-number gaps in what the simulator sends after the GCS reappears; worth a look in `Gcs.Simulation`.
 
 ## Possible next steps (need Mustafa's decision)
 

@@ -1,37 +1,56 @@
 using System.Globalization;
+using Avalonia;
 using Avalonia.Data.Converters;
 using Avalonia.Media;
 
 namespace Gcs.Desktop.ViewModels;
 
-/// <summary>Link state → status light colour (green connected, amber in progress, red faulted, grey off).</summary>
+/// <summary>Status brushes come from the design tokens (Themes/Tokens.axaml), so converters and views share one palette.</summary>
+internal static class ThemeBrush
+{
+    public static IBrush Success => Get("Brush.Success");
+
+    public static IBrush Warning => Get("Brush.Warning");
+
+    public static IBrush Danger => Get("Brush.Danger");
+
+    public static IBrush Neutral => Get("Brush.Neutral");
+
+    public static IBrush TextSecondary => Get("Brush.Text.Secondary");
+
+    /// <summary>Gray outside a running app (unit tests have no resources).</summary>
+    private static IBrush Get(string key) =>
+        Application.Current?.TryGetResource(key, null, out var value) == true && value is IBrush brush ? brush : Brushes.Gray;
+}
+
+/// <summary>Link state → status light colour (green connected, yellow in progress, red faulted, grey off).</summary>
 public sealed class LinkStateBrush : IValueConverter
 {
     public static readonly LinkStateBrush Instance = new();
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch
     {
-        "Connected" => Brushes.LimeGreen,
-        "Connecting" or "Reconnecting" => Brushes.Orange,
-        "Faulted" => Brushes.Red,
-        _ => Brushes.Gray,
+        "Connected" => ThemeBrush.Success,
+        "Connecting" or "Reconnecting" => ThemeBrush.Warning,
+        "Faulted" => ThemeBrush.Danger,
+        _ => ThemeBrush.Neutral,
     };
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 }
 
-/// <summary>Link quality grade → colour of the quality line (green good, gold fair, orange-red poor, grey lost).</summary>
+/// <summary>Link quality grade → colour of the quality line (green good, yellow fair, red poor, grey lost).</summary>
 public sealed class LinkGradeBrush : IValueConverter
 {
     public static readonly LinkGradeBrush Instance = new();
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch
     {
-        "Good" => Brushes.LimeGreen,
-        "Fair" => Brushes.Gold,
-        "Poor" => Brushes.OrangeRed,
-        _ => Brushes.Gray,
+        "Good" => ThemeBrush.Success,
+        "Fair" => ThemeBrush.Warning,
+        "Poor" => ThemeBrush.Danger,
+        _ => ThemeBrush.Neutral,
     };
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
@@ -44,7 +63,7 @@ public sealed class ArmedBrush : IValueConverter
     public static readonly ArmedBrush Instance = new();
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value is true ? Brushes.OrangeRed : Brushes.LightGray;
+        value is true ? ThemeBrush.Danger : ThemeBrush.TextSecondary;
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
@@ -55,7 +74,7 @@ public sealed class BatteryBrush : IValueConverter
     public static readonly BatteryBrush Instance = new();
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value is true ? Brushes.OrangeRed : Brushes.LimeGreen;
+        value is true ? ThemeBrush.Danger : ThemeBrush.Success;
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
@@ -92,23 +111,23 @@ public sealed class ResultBrush : IValueConverter
     public static readonly ResultBrush Instance = new();
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value is true ? Brushes.OrangeRed : Brushes.LimeGreen;
+        value is true ? ThemeBrush.Danger : ThemeBrush.Success;
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 }
 
-/// <summary>Audit outcome colour: accepted green, refused or rejected orange, timed out red (state unknown).</summary>
+/// <summary>Audit outcome colour: accepted green, refused or rejected yellow, timed out red (state unknown).</summary>
 public sealed class OutcomeBrush : IValueConverter
 {
     public static readonly OutcomeBrush Instance = new();
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value switch
     {
-        "Accepted" => Brushes.LimeGreen,
-        "Rejected" or "Refused" => Brushes.Orange,
-        "TimedOut" => Brushes.OrangeRed,
-        _ => Brushes.Gray,
+        "Accepted" => ThemeBrush.Success,
+        "Rejected" or "Refused" => ThemeBrush.Warning,
+        "TimedOut" => ThemeBrush.Danger,
+        _ => ThemeBrush.Neutral,
     };
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>

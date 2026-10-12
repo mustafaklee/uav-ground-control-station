@@ -1,8 +1,35 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Gcs.Desktop.App"
+             Name="UAV Ground Control Station"
              RequestedThemeVariant="Dark">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://Gcs.Desktop/Themes/Tokens.axaml" />
+        <ResourceInclude Source="avares://Gcs.Desktop/Themes/Icons.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+
   <Application.Styles>
-    <FluentTheme />
+    <!--
+      Fluent's own palette, mapped onto the design tokens (ADR-020) so that controls not styled by hand (drop-downs,
+      check boxes, scroll bars, focus rings, menus) match. Fluent's accent is the cool blue: selection and focus.
+      The amber of primary buttons is applied explicitly in Themes/Controls.axaml.
+    -->
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Dark"
+                               Accent="#3A86C8" RegionColor="#0A0F16" ErrorText="#F0564E"
+                               AltHigh="#0A0F16" AltLow="#0A0F16" AltMedium="#0A0F16" AltMediumHigh="#0A0F16" AltMediumLow="#0A0F16"
+                               BaseHigh="#E6EAF0" BaseLow="#2A3747" BaseMedium="#A3AFBF" BaseMediumHigh="#C9D1DB" BaseMediumLow="#7A8798"
+                               ChromeAltLow="#C9D1DB" ChromeBlackHigh="#000000" ChromeBlackLow="#C9D1DB" ChromeBlackMedium="#000000"
+                               ChromeBlackMediumLow="#000000" ChromeDisabledHigh="#2A3747" ChromeDisabledLow="#7A8798" ChromeGray="#7A8798"
+                               ChromeHigh="#3A4B5F" ChromeLow="#131B26" ChromeMedium="#19232F" ChromeMediumLow="#131B26" ChromeWhite="#FFFFFF"
+                               ListLow="#19232F" ListMedium="#222E3C" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="avares://Gcs.Desktop/Themes/Controls.axaml" />
   </Application.Styles>
 </Application>

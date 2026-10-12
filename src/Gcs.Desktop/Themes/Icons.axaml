@@ -1,0 +1,59 @@
+<!--
+  Line icons for Controls/StrokeIcon: drawn for this project in a 24 × 24 box, stroked (not filled) with round caps.
+  One visual weight everywhere. A dot is a zero-length segment ("M7 7 H7.01"): the round cap makes it a dot.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Brand mark: a hexagonal shield around a delta wing. -->
+  <StreamGeometry x:Key="Icon.Brand">M12 2 L20.5 7 V17 L12 22 L3.5 17 V7 Z M12 7 L16.5 15.5 L12 13.4 L7.5 15.5 Z</StreamGeometry>
+
+  <!-- Navigation -->
+  <StreamGeometry x:Key="Icon.Flight">M12 2.5 L13.6 9 L21 13 V14.6 L13.6 12.6 L13.1 18 L15.5 19.8 V21 L12 20.1 L8.5 21 V19.8 L10.9 18 L10.4 12.6 L3 14.6 V13 L10.4 9 Z</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Mission">M3 18 A2 2 0 1 0 7 18 A2 2 0 1 0 3 18 Z M17 6 A2 2 0 1 0 21 6 A2 2 0 1 0 17 6 Z M7 17 C12 15.5 8 10 12.5 8.5 L17 7</StreamGeometry>
+
+  <!-- Actions -->
+  <StreamGeometry x:Key="Icon.Refresh">M4 12 A8 8 0 0 1 18.5 7.5 M19 3 V8 H14 M20 12 A8 8 0 0 1 5.5 16.5 M5 21 V16 H10</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Plug">M9 2.5 V7 M15 2.5 V7 M6 7 H18 V11 A6 6 0 0 1 6 11 Z M12 17 V21.5</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Unplug">M9 2.5 V7 M15 2.5 V7 M6 7 H18 V11 A6 6 0 0 1 6 11 Z M12 17 V21.5 M3 3 L21 21</StreamGeometry>
+  <StreamGeometry x:Key="Icon.SignOut">M14 4 H6 A2 2 0 0 0 4 6 V18 A2 2 0 0 0 6 20 H14 M10 12 H21 M17 8 L21 12 L17 16</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Plus">M12 5 V19 M5 12 H19</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Close">M6 6 L18 18 M18 6 L6 18</StreamGeometry>
+  <StreamGeometry x:Key="Icon.ArrowUp">M12 19 V5 M6 11 L12 5 L18 11</StreamGeometry>
+  <StreamGeometry x:Key="Icon.ArrowDown">M12 5 V19 M6 13 L12 19 L18 13</StreamGeometry>
+  <StreamGeometry x:Key="Icon.ChevronDown">M6 9 L12 15 L18 9</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Trash">M4 7 H20 M9 7 V4 H15 V7 M6 7 L7 20 H17 L18 7 M10 11 V16 M14 11 V16</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Save">M5 4 H16 L20 8 V20 H4 V4 Z M8 4 V9 H15 V4 M7 20 V14 H17 V20</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Upload">M12 15 V4 M7 9 L12 4 L17 9 M4 15 V20 H20 V15</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Download">M12 4 V15 M7 10 L12 15 L17 10 M4 15 V20 H20 V15</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Archive">M3 4 H21 V8 H3 Z M5 8 V20 H19 V8 M10 12 H14</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Waypoint">M12 21 C12 21 5 14.5 5 9.5 A7 7 0 0 1 19 9.5 C19 14.5 12 21 12 21 Z M12 7 V12 M9.5 9.5 H14.5</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Crosshair">M12 3 V7 M12 17 V21 M3 12 H7 M17 12 H21 M12 9 A3 3 0 1 0 12 15 A3 3 0 1 0 12 9 Z</StreamGeometry>
+
+  <!-- Vehicle commands -->
+  <StreamGeometry x:Key="Icon.Lock">M6 11 H18 V20 H6 Z M8 11 V8 A4 4 0 0 1 16 8 V11 M12 14.5 V16.5</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Unlock">M6 11 H18 V20 H6 Z M8 11 V8 A4 4 0 0 1 15.6 6.3 M12 14.5 V16.5</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Power">M12 3 V12 M7.4 6.6 A7 7 0 1 0 16.6 6.6</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Disarm">M12 3 A9 9 0 1 0 12 21 A9 9 0 1 0 12 3 Z M5.6 5.6 L18.4 18.4</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Takeoff">M4 20 H20 M12 16 V4 M7 9 L12 4 L17 9</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Land">M4 20 H20 M12 4 V16 M7 11 L12 16 L17 11</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Home">M3 11 L12 4 L21 11 M5.5 9.5 V20 H18.5 V9.5 M10 20 V14 H14 V20</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Mode">M4 6 H13 M17 6 H20 M15 4 V8 M4 12 H7 M11 12 H20 M9 10 V14 M4 18 H15 M19 18 H20 M17 16 V20</StreamGeometry>
+
+  <!-- Status -->
+  <StreamGeometry x:Key="Icon.User">M12 12 A4 4 0 1 0 12 4 A4 4 0 1 0 12 12 Z M4.5 21 A7.5 6.5 0 0 1 19.5 21</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Server">M4 4.5 H20 V10 H4 Z M4 14 H20 V19.5 H4 Z M7.5 7.25 H7.51 M7.5 16.75 H7.51</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Signal">M5 19 V16 M9.5 19 V12.5 M14 19 V9 M18.5 19 V5.5</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Satellite">M12 2.5 V5.5 M12 18.5 V21.5 M2.5 12 H5.5 M18.5 12 H21.5 M12 6 A6 6 0 1 0 12 18 A6 6 0 1 0 12 6 Z M12 11.99 H12.01</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Battery">M3 8 H18 V16 H3 Z M21 10.5 V13.5 M6 11 V13 M9 11 V13</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Clock">M12 3 A9 9 0 1 0 12 21 A9 9 0 1 0 12 3 Z M12 7 V12 L15.5 14</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Gauge">M4.5 17 A8.5 8.5 0 1 1 19.5 17 M12 14 L16 9 M12 14 H12.01</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Shield">M12 3 L20 6 V12 C20 16.5 16.5 19.5 12 21 C7.5 19.5 4 16.5 4 12 V6 Z M9 12 L11 14 L15 10</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Warning">M12 3.5 L21.5 20 H2.5 Z M12 9.5 V14 M12 17 H12.01</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Error">M12 3 A9 9 0 1 0 12 21 A9 9 0 1 0 12 3 Z M12 7.5 V13 M12 16.5 H12.01</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Check">M12 3 A9 9 0 1 0 12 21 A9 9 0 1 0 12 3 Z M8 12.5 L11 15.5 L16.5 9</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Info">M12 3 A9 9 0 1 0 12 21 A9 9 0 1 0 12 3 Z M12 11 V16.5 M12 7.5 H12.01</StreamGeometry>
+  <StreamGeometry x:Key="Icon.Eye">M2 12 C5 6 19 6 22 12 C19 18 5 18 2 12 Z M12 9 A3 3 0 1 0 12 15 A3 3 0 1 0 12 9 Z</StreamGeometry>
+  <StreamGeometry x:Key="Icon.EyeOff">M2 12 C5 6 19 6 22 12 C19 18 5 18 2 12 Z M12 9 A3 3 0 1 0 12 15 A3 3 0 1 0 12 9 Z M3 3 L21 21</StreamGeometry>
+  <StreamGeometry x:Key="Icon.History">M4 12 A8 8 0 1 0 6.3 6.3 M4 3.5 V7 H7.5 M12 8 V12 L14.5 13.5</StreamGeometry>
+</ResourceDictionary>

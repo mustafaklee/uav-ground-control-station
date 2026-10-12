@@ -153,32 +153,34 @@ public sealed class VehicleMap : IDisposable
         _vehicleLayer.DataHasChanged();
     }
 
+    // Map colours follow the design tokens (Themes/Tokens.axaml): trail and selection in the cool blue, the planned
+    // route in the amber accent, home in the success green. Mapsui styles are not XAML, so the values are repeated here.
     private static readonly SymbolStyle TrailStyle = new()
     {
         SymbolType = SymbolType.Ellipse,
         SymbolScale = 0.12,
-        Fill = new Brush(Color.FromArgb(200, 0, 170, 255)),
+        Fill = new Brush(Color.FromArgb(200, 91, 168, 229)),
         Outline = null,
     };
 
     private static readonly VectorStyle RouteStyle = new()
     {
-        Line = new Pen(Color.FromArgb(230, 241, 196, 15), 3) { PenStyle = PenStyle.Dash },
+        Line = new Pen(Color.FromArgb(230, 242, 156, 56), 3) { PenStyle = PenStyle.Dash },
     };
 
     private static readonly SymbolStyle WaypointStyle = new()
     {
         SymbolType = SymbolType.Ellipse,
         SymbolScale = 0.5,
-        Fill = new Brush(Color.FromArgb(255, 241, 196, 15)),
-        Outline = new Pen(Color.FromArgb(255, 15, 23, 32), 2),
+        Fill = new Brush(Color.FromArgb(255, 242, 156, 56)),
+        Outline = new Pen(Color.FromArgb(255, 14, 20, 29), 2),
     };
 
     private static readonly SymbolStyle SelectedWaypointStyle = new()
     {
         SymbolType = SymbolType.Ellipse,
         SymbolScale = 0.7,
-        Fill = new Brush(Color.FromArgb(255, 230, 126, 34)),
+        Fill = new Brush(Color.FromArgb(255, 91, 168, 229)),
         Outline = new Pen(Color.White, 3),
     };
 
@@ -186,7 +188,7 @@ public sealed class VehicleMap : IDisposable
     {
         Text = text,
         ForeColor = Color.White,
-        BackColor = new Brush(Color.FromArgb(200, 15, 23, 32)),
+        BackColor = new Brush(Color.FromArgb(220, 14, 20, 29)),
         Font = new Font { Size = 11, Bold = true },
         Offset = new Offset(0, -20),
     };
@@ -195,7 +197,7 @@ public sealed class VehicleMap : IDisposable
     {
         SymbolType = SymbolType.Rectangle,
         SymbolScale = 0.45,
-        Fill = new Brush(Color.FromArgb(255, 46, 204, 113)),
+        Fill = new Brush(Color.FromArgb(255, 61, 190, 126)),
         Outline = new Pen(Color.White, 2),
     };
 

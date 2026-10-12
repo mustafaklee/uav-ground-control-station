@@ -68,7 +68,23 @@ public sealed class AuthSessionTests : IDisposable
 
         viewModel.ErrorMessage.ShouldBe("Too many wrong passwords.");
         viewModel.Password.ShouldBeEmpty();
-        viewModel.SignInCommand.CanExecute(null).ShouldBeFalse();
+        viewModel.PasswordError.ShouldBeNull(); // the server's reason is enough; no "enter your password" on top
+    }
+
+    [Fact]
+    public async Task Empty_fields_are_reported_next_to_the_field_without_calling_the_server()
+    {
+        var viewModel = new LoginViewModel(_session, new Uri("http://gcs/")) { Username = "  " };
+
+        await viewModel.SignInCommand.ExecuteAsync(null);
+
+        viewModel.UsernameError.ShouldBe("Enter your username.");
+        viewModel.PasswordError.ShouldBe("Enter your password.");
+        viewModel.ErrorMessage.ShouldBeNull();
+        _session.User.ShouldBeNull();
+
+        viewModel.Username = "pilot";
+        viewModel.UsernameError.ShouldBeNull(); // typing clears the message
     }
 
     [Fact]

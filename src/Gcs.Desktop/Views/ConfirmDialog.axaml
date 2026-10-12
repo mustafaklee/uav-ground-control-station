@@ -1,0 +1,31 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="using:Gcs.Desktop.Controls"
+        x:Class="Gcs.Desktop.Views.ConfirmDialog"
+        Width="460" SizeToContent="Height" CanResize="False" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner" Background="{StaticResource Brush.Surface.1}">
+
+  <!--
+    Confirmation for commands with consequences (arm, takeoff). The confirm button is deliberately NOT the default
+    button: Enter by reflex must not arm a vehicle. Keyboard focus starts on Cancel; Escape cancels.
+  -->
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Background="{StaticResource Brush.Surface.0}" BorderBrush="{StaticResource Brush.Border.Subtle}"
+            BorderThickness="0,1,0,0" Padding="20,14">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button x:Name="CancelButton" Content="Cancel" IsCancel="True" MinWidth="96" />
+        <Button x:Name="ConfirmButton" Classes="danger" MinWidth="96" />
+      </StackPanel>
+    </Border>
+    <Grid ColumnDefinitions="Auto,*" Margin="24,24,24,22">
+      <Border Width="40" Height="40" CornerRadius="20" VerticalAlignment="Top" Margin="0,0,16,0"
+              Background="{StaticResource Brush.Danger.Subtle}" BorderBrush="{StaticResource Brush.Danger}" BorderThickness="1">
+        <ui:StrokeIcon Data="{StaticResource Icon.Warning}" Width="20" Height="20" Foreground="{StaticResource Brush.Danger}" />
+      </Border>
+      <StackPanel Grid.Column="1" Spacing="8">
+        <TextBlock x:Name="TitleText" Classes="h2" TextWrapping="Wrap" />
+        <TextBlock x:Name="MessageText" Classes="muted" TextWrapping="Wrap" LineHeight="20" />
+      </StackPanel>
+    </Grid>
+  </DockPanel>
+</Window>

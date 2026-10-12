@@ -13,11 +13,11 @@ public sealed partial class MissionItemViewModel : ObservableObject
     public static readonly IReadOnlyList<string> Commands = ["Takeoff", "Waypoint", "Loiter", "ReturnToLaunch", "Land"];
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(HasPosition))]
+    [NotifyPropertyChangedFor(nameof(Title), nameof(HasPosition), nameof(Label))]
     private string _command = "Waypoint";
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title))]
+    [NotifyPropertyChangedFor(nameof(Title), nameof(Number))]
     private int _index;
 
     [ObservableProperty]
@@ -29,7 +29,7 @@ public sealed partial class MissionItemViewModel : ObservableObject
     private double? _longitude;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title))]
+    [NotifyPropertyChangedFor(nameof(Title), nameof(Label))]
     private double? _altitude;
 
     [ObservableProperty]
@@ -48,6 +48,14 @@ public sealed partial class MissionItemViewModel : ObservableObject
     public string Title => Altitude is { } alt
         ? string.Create(CultureInfo.InvariantCulture, $"{Index + 1} · {Command} · {alt:0} m")
         : string.Create(CultureInfo.InvariantCulture, $"{Index + 1} · {Command}");
+
+    /// <summary>1-based position in the plan, as on the map.</summary>
+    public int Number => Index + 1;
+
+    /// <summary>"Waypoint · 50 m": the title without the number, for rows that show the number separately.</summary>
+    public string Label => Altitude is { } alt
+        ? string.Create(CultureInfo.InvariantCulture, $"{Command} · {alt:0} m")
+        : Command;
 
     public static MissionItemViewModel From(MissionItemDto dto)
     {

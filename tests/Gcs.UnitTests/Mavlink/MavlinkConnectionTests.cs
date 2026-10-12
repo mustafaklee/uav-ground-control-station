@@ -296,6 +296,20 @@ public sealed class MavlinkConnectionTests : IAsyncDisposable
         _connection.GetStatus().Quality.Grade.ShouldBe(LinkQualityGrade.Good);
     }
 
+    [Fact]
+    public async Task The_status_reported_for_connected_already_counts_the_heartbeat_frame()
+    {
+        _connection.Start();
+
+        await SendFromVehicleAsync(VehicleHeartbeat());
+
+        await EventuallyAsync(() => _events.Statuses.Any(s => s.State == ConnectionState.Connected));
+        var connected = _events.Statuses.First(s => s.State == ConnectionState.Connected);
+        connected.Quality.Grade.ShouldBe(LinkQualityGrade.Good);
+        connected.Quality.MessagesPerSecond.ShouldBeGreaterThan(0);
+        connected.Quality.LastFrameAt.ShouldNotBeNull();
+    }
+
     public async ValueTask DisposeAsync() => await _connection.DisposeAsync();
 
     /// <summary>Reads what the GCS sent until a message of type <typeparamref name="T"/> arrives.</summary>
@@ -387,10 +401,17 @@ public sealed class MavlinkConnectionTests : IAsyncDisposable
     private sealed class RecordingEvents : IVehicleLinkEventSink
     {
         private readonly ConcurrentQueue<(ConnectionState From, ConnectionState To)> _transitions = new();
+        private readonly ConcurrentQueue<VehicleLinkStatus> _statuses = new();
 
         public IReadOnlyList<(ConnectionState From, ConnectionState To)> Transitions => [.. _transitions];
 
-        public void StateChanged(VehicleLinkStatus status, ConnectionState previous) => _transitions.Enqueue((previous, status.State));
+        public IReadOnlyList<VehicleLinkStatus> Statuses => [.. _statuses];
+
+        public void StateChanged(VehicleLinkStatus status, ConnectionState previous)
+        {
+            _transitions.Enqueue((previous, status.State));
+            _statuses.Enqueue(status);
+        }
     }
 
     private sealed class RecordingSink : ITelemetrySink

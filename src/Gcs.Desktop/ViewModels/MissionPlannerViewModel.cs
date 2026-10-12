@@ -27,6 +27,8 @@ public sealed partial class MissionPlannerViewModel : ObservableObject
         _api = api;
         _selectedVehicle = selectedVehicle;
         Items.CollectionChanged += OnItemsChanged;
+        Items.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasItems));
+        Issues.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasIssues));
     }
 
     /// <summary>Raised whenever the route on the map must be redrawn (items added, removed, moved or edited).</summary>
@@ -40,6 +42,10 @@ public sealed partial class MissionPlannerViewModel : ObservableObject
     public ObservableCollection<MissionItemViewModel> Items { get; } = [];
 
     public ObservableCollection<string> Issues { get; } = [];
+
+    public bool HasItems => Items.Count > 0;
+
+    public bool HasIssues => Issues.Count > 0;
 
     [ObservableProperty]
     private MissionSummaryResponse? _selectedMission;

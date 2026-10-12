@@ -23,6 +23,9 @@ public sealed partial class MainWindow : Window
     /// <summary>A press and release closer than this (in pixels) is a click; anything further is a pan.</summary>
     private const double ClickTolerance = 4;
 
+    /// <summary>Window width under which secondary top-bar details are hidden instead of being clipped.</summary>
+    private const double CompactWidth = 1380;
+
     private readonly VehicleMap _map = new();
     private MainWindowViewModel? _viewModel;
     private Point? _pressedAt;
@@ -32,9 +35,12 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         MapControl.Map = _map.Map;
         AttributionText.Text = VehicleMap.Attribution;
-        FollowCheckBox.IsCheckedChanged += (_, _) => _map.FollowVehicle = FollowCheckBox.IsChecked == true;
+        FollowToggle.IsCheckedChanged += (_, _) => _map.FollowVehicle = FollowToggle.IsChecked == true;
         DataContextChanged += (_, _) => Attach(DataContext as MainWindowViewModel);
         Closed += (_, _) => _map.Dispose();
+
+        // Below this width the top bar keeps only the vehicle, its link and armed state (Themes/Controls.axaml).
+        SizeChanged += (_, e) => Classes.Set("compact", e.NewSize.Width < CompactWidth);
 
         // The map control handles pointer events itself (panning), so listen to handled events too.
         MapControl.AddHandler(PointerPressedEvent, OnMapPointerPressed, RoutingStrategies.Tunnel | RoutingStrategies.Bubble, handledEventsToo: true);
@@ -90,7 +96,7 @@ public sealed partial class MainWindow : Window
                 break;
             case nameof(MissionPlannerViewModel.IsAddingWaypoints) when _viewModel?.Planner.IsAddingWaypoints == true:
                 // A map that keeps re-centring on the vehicle is impossible to click on.
-                FollowCheckBox.IsChecked = false;
+                FollowToggle.IsChecked = false;
                 break;
         }
     }
@@ -100,7 +106,7 @@ public sealed partial class MainWindow : Window
     private void OnMissionOpened(object? sender, EventArgs e)
     {
         // Show the whole route; following the vehicle would immediately pan away from it.
-        FollowCheckBox.IsChecked = false;
+        FollowToggle.IsChecked = false;
         _map.ZoomToMission(MissionPoints());
     }
 

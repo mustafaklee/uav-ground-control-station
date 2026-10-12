@@ -6,6 +6,13 @@ using Gcs.Desktop.Services;
 
 namespace Gcs.Desktop.ViewModels;
 
+/// <summary>The pages of the main window's navigation rail. The map stays; the side panel shows the page.</summary>
+public enum AppPage
+{
+    Flight,
+    Mission,
+}
+
 /// <summary>
 /// The GCS main screen: vehicle list, selected vehicle's live telemetry and controls, connect/disconnect, backend status.
 /// It only talks to <see cref="IGcsApiClient"/> and <see cref="IRealtimeClient"/>, so it is tested without a server.
@@ -34,6 +41,20 @@ public sealed partial class MainWindowViewModel : ObservableObject
         var mayCommand = role is "Operator" or "Administrator";
         Commands = new CommandPanelViewModel(api, confirmation ?? new DenyAllConfirmation(), () => SelectedVehicle, operatorName, mayCommand);
         CurrentUser = $"{operatorName} ({role})";
+        OperatorName = operatorName;
+        Role = role;
+        Initials = operatorName.Length > 0 ? operatorName[..1].ToUpperInvariant() : "?";
+
+        Vehicles.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasVehicles));
+
+        // Clicking the map adds waypoints to the plan, so turning that on from the map shows the plan.
+        Planner.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MissionPlannerViewModel.IsAddingWaypoints) && Planner.IsAddingWaypoints)
+            {
+                CurrentPage = AppPage.Mission;
+            }
+        };
 
         _realtime.TelemetryReceived += telemetry => _ui.Post(() => OnTelemetry(telemetry));
         _realtime.LinkStatusReceived += status => _ui.Post(() => OnLinkStatus(status));
@@ -48,6 +69,48 @@ public sealed partial class MainWindowViewModel : ObservableObject
     /// <summary>"name (Role)" for the toolbar.</summary>
     public string CurrentUser { get; }
 
+    public string OperatorName { get; }
+
+    public string Role { get; }
+
+    /// <summary>First letter of the operator's name, for the account button.</summary>
+    public string Initials { get; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFlightPage), nameof(IsMissionPage), nameof(PageTitle), nameof(PageSubtitle))]
+    private AppPage _currentPage = AppPage.Flight;
+
+    /// <summary>Two-way for the navigation rail's radio buttons; only "true" switches, the other button clears itself.</summary>
+    public bool IsFlightPage
+    {
+        get => CurrentPage == AppPage.Flight;
+        set
+        {
+            if (value)
+            {
+                CurrentPage = AppPage.Flight;
+            }
+        }
+    }
+
+    public bool IsMissionPage
+    {
+        get => CurrentPage == AppPage.Mission;
+        set
+        {
+            if (value)
+            {
+                CurrentPage = AppPage.Mission;
+            }
+        }
+    }
+
+    public string PageTitle => CurrentPage == AppPage.Flight ? "Flight operations" : "Mission planning";
+
+    public string PageSubtitle => CurrentPage == AppPage.Flight
+        ? "Live telemetry, link status and vehicle control"
+        : "Plan, check and transfer missions";
+
     /// <summary>Raised by the Sign out button; the app ends the session and shows the sign-in window.</summary>
     public event EventHandler? SignOutRequested;
 
@@ -60,17 +123,49 @@ public sealed partial class MainWindowViewModel : ObservableObject
     public CommandPanelViewModel Commands { get; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(BackendStatus))]
+    [NotifyPropertyChangedFor(nameof(BackendStatus), nameof(BackendStateText), nameof(IsBackendConnected))]
     private BackendConnectionState _backendState = BackendConnectionState.Disconnected;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ConnectCommand), nameof(DisconnectCommand))]
+    [NotifyPropertyChangedFor(nameof(HasSelectedVehicle))]
     private VehicleItemViewModel? _selectedVehicle;
 
     [ObservableProperty]
     private string? _errorMessage;
 
     public string BackendStatus => $"Backend: {BackendState}";
+
+    /// <summary>For the status pill: "Online", "Connecting", "Reconnecting", "Offline".</summary>
+    public string BackendStateText => BackendState switch
+    {
+        BackendConnectionState.Connected => "Online",
+        BackendConnectionState.Disconnected => "Offline",
+        var state => state.ToString(),
+    };
+
+    public bool IsBackendConnected => BackendState == BackendConnectionState.Connected;
+
+    public bool HasSelectedVehicle => SelectedVehicle is not null;
+
+    public bool HasVehicles => Vehicles.Count > 0;
+
+    /// <summary>
+    /// Without a live connection the link rows stop updating; they say so instead of showing old values as current.
+    /// </summary>
+    partial void OnBackendStateChanged(BackendConnectionState value)
+    {
+        foreach (var vehicle in Vehicles)
+        {
+            vehicle.IsStale = value != BackendConnectionState.Connected;
+        }
+    }
+
+    [RelayCommand]
+    private void ShowPage(AppPage page) => CurrentPage = page;
+
+    [RelayCommand]
+    private void DismissError() => ErrorMessage = null;
 
     /// <summary>Loads the fleet, starts the live connection. Called once when the window opens.</summary>
     public async Task InitializeAsync(CancellationToken cancellationToken)
@@ -102,7 +197,7 @@ public sealed partial class MainWindowViewModel : ObservableObject
             Vehicles.Clear();
             foreach (var vehicle in vehicles.OrderBy(v => v.Callsign, StringComparer.Ordinal))
             {
-                var item = new VehicleItemViewModel(vehicle);
+                var item = new VehicleItemViewModel(vehicle) { IsStale = BackendState != BackendConnectionState.Connected };
                 item.Apply(await _api.GetLinkAsync(vehicle.Id, cancellationToken));
                 Vehicles.Add(item);
             }
